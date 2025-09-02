@@ -10,32 +10,22 @@ from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, render_template, redirect, url_for, session, send_from_directory, flash
 from flask_cors import CORS
 from docx import Document
-from dotenv import load_dotenv
+# load_dotenv is removed because Render sets environment variables directly
 import google.generativeai as genai
 from google.api_core import exceptions
 import PyPDF2
 import requests
 import pytesseract
 from PIL import Image
-import fitz  # PyMuPDF for better PDF text extraction
+import fitz # PyMuPDF is correctly imported as fitz
 
+# --- Firebase and Rate Limiting Setup ---
 
-# Try to import optional dependencies
-try:
-    import firebase_admin
-    from firebase_admin import credentials, firestore, auth
-    FIREBASE_AVAILABLE = True
-except ImportError:
-    FIREBASE_AVAILABLE = False
-    print("Firebase Admin SDK not available. Some features will be disabled.")
-
-try:
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
-    LIMITER_AVAILABLE = True
-except ImportError:
-    LIMITER_AVAILABLE = False
-    print("Flask-Limiter not available. Rate limiting will be disabled.")
+# Use direct import for packages that should always be available
+import firebase_admin
+from firebase_admin import credentials, firestore, auth
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 # --- Whitelisted Users ---
 ALLOWED_USERS = {
@@ -70,11 +60,11 @@ ALLOWED_USERS = {
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
 
 # --- Track active sessions ---
-active_sessions = {}  # {email: session_id}
+active_sessions = {}
 user_sessions = {}
 
 # --- Setup ---
-load_dotenv()
+# Your code should now read env variables directly from the OS, as set by Render.
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 # Configure logging
@@ -82,8 +72,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
+        logging.StreamHandler() # FileHandler is not needed in a stateless environment like Render
     ]
 )
 logger = logging.getLogger(__name__)
@@ -92,40 +81,32 @@ app = Flask(__name__)
 CORS(app)
 app.secret_key = os.getenv("SECRET_KEY") or os.urandom(24)
 
-# Rate limiting (if available)
-if LIMITER_AVAILABLE:
-    limiter = Limiter(
-        app=app,
-        key_func=get_remote_address,
-        default_limits=["200 per day", "50 per hour"],
-        storage_uri="memory://"
-    )
-else:
-    def limiter_limit(limit_str):
-        def decorator(f):
-            return f
-        return decorator
-    limiter = type('DummyLimiter', (), {'limit': lambda self, limit_str: limiter_limit(limit_str)})()
+# Rate limiting (always available)
+limiter = Limiter(
+    app=app,
+    key_func=get_remote_address,
+    default_limits=["200 per day", "50 per hour"],
+    storage_uri="memory://"
+)
 
 # In-memory storage with expiration for rooms
 rooms = {}
 
 # --- Firebase Setup ---
 db = None
-if FIREBASE_AVAILABLE:
-    try:
-        if os.path.exists("serviceAccountKey.json"):
-            cred = credentials.Certificate("serviceAccountKey.json")
-            firebase_admin.initialize_app(cred)
-            db = firestore.client()
-            logger.info("Firebase initialized successfully")
-        else:
-            logger.warning("Firebase credentials file not found. Firebase features disabled.")
-    except Exception as e:
-        logger.warning(f"Firebase init failed: {e}")
-        db = None
-else:
-    logger.warning("Firebase not available. Some features will be disabled.")
+# Correctly authenticate Firebase using environment variables
+try:
+    if os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON"):
+        cred_json = json.loads(os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON"))
+        cred = credentials.Certificate(cred_json)
+        firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        logger.info("Firebase initialized successfully")
+    else:
+        logger.warning("FIREBASE_SERVICE_ACCOUNT_JSON not set. Firebase features disabled.")
+except Exception as e:
+    logger.warning(f"Firebase init failed: {e}")
+    db = None
 
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
@@ -1198,4 +1179,5 @@ if __name__ == "__main__":
     host = os.getenv("FLASK_HOST", "0.0.0.0")
     port = int(os.getenv("FLASK_PORT", "5000"))
     
+
     app.run(debug=debug_mode, host=host, port=port)
