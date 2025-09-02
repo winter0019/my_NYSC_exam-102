@@ -17,7 +17,8 @@ import PyPDF2
 import requests
 import pytesseract
 from PIL import Image
-import fitz  # PyMuPDF for better PDF text extraction
+import fitz # PyMuPDF for better PDF text extraction
+
 
 
 # Try to import optional dependencies
@@ -1029,3 +1030,4 @@ def fetch_user_history(email, limit=10):
 
 if __name__ == "__main__":
     app.run(debug=True, port=int(os.getenv('PORT', 5000)))
+
