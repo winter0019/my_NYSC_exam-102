@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discussion Rooms - NYSC Exam Prep</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3a0ca3;
+      --light: #f8f9fa;
+      --dark: #212529;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .user-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: var(--light);
+      border-bottom: 1px solid #eee;
+    }
+    
+    .main-content {
+      padding: 30px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      border: 1px solid #eee;
+    }
+    
+    .room-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .room-item {
+      background: var(--light);
+      padding: 20px;
+      margin: 15px 0;
+      border-radius: 10px;
+      border-left: 4px solid var(--primary);
+      transition: all 0.3s ease;
+    }
+    
+    .room-item:hover {
+      transform: translateX(5px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .room-meta {
+      color: #666;
+      font-size: 0.9em;
+      margin-top: 10px;
+    }
+    
+    .btn {
+      background: var(--primary);
+      color: white;
+      padding: 12px 24px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+    
+    .btn:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background: var(--secondary);
+    }
+    
+    .empty-state {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+    }
+    
+    .room-stats {
+      display: flex;
+      gap: 15px;
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #666;
+    }
+    
+    .stat {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-comments"></i> Discussion Rooms</h1>
+      <p>Join ongoing discussions with other users</p>
+    </div>
+    
+    <div class="user-info">
+      <div>
+        <strong>Welcome, {{ session.user_email }}</strong>
+      </div>
+      <div>
+        <a href="{{ url_for('dashboard') }}" class="btn">
+          <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+        <a href="{{ url_for('create_room') }}" class="btn">
+          <i class="fas fa-plus"></i> Create New Room
+        </a>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      <div class="card">
+        <h2><i class="fas fa-door-open"></i> Available Discussion Rooms</h2>
+        
+        {% if rooms %}
+          <ul class="room-list">
+            {% for room in rooms %}
+              <li class="room-item">
+                <h3>{{ room.question }}</h3>
+                <div class="room-meta">
+                  <i class="fas fa-user"></i> Created by: {{ room.created_by }} |
+                  <i class="fas fa-clock"></i> Last activity: 
+                  {% if room.last_activity %}
+                    {{ room.last_activity.strftime('%Y-%m-%d %H:%M') }}
+                  {% else %}
+                    N/A
+                  {% endif %}
+                </div>
+                {% if room.messages %}
+                <div class="room-stats">
+                  <span class="stat">
+                    <i class="fas fa-comments"></i> {{ room.messages|length }} messages
+                  </span>
+                  <span class="stat">
+                    <i class="fas fa-users"></i> 
+                    {% set participants = [] %}
+                    {% for message in room.messages %}
+                      {% if message.user not in participants %}
+                        {% set _ = participants.append(message.user) %}
+                      {% endif %}
+                    {% endfor %}
+                    {{ participants|length }} participants
+                  </span>
+                </div>
+                {% endif %}
+                <a href="{{ url_for('discussion_room', room_id=room.id) }}" class="btn">
+                  <i class="fas fa-arrow-right"></i> Join Discussion
+                </a>
+              </li>
+            {% endfor %}
+          </ul>
+        {% else %}
+          <div class="empty-state">
+            <i class="fas fa-comment-slash" style="font-size: 3em; margin-bottom: 20px;"></i>
+            <h3>No discussion rooms available</h3>
+            <p>Be the first to create a discussion room!</p>
+            <a href="{{ url_for('create_room') }}" class="btn">
+              <i class="fas fa-plus"></i> Create First Room
+            </a>
+          </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</body>
+</html>

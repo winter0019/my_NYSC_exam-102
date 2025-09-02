@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Discussion Room - NYSC Exam Prep</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3a0ca3;
+      --light: #f8f9fa;
+      --dark: #212529;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .user-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: var(--light);
+      border-bottom: 1px solid #eee;
+    }
+    
+    .main-content {
+      padding: 30px;
+      display: grid;
+      grid-template-columns: 2fr 1fr;
+      gap: 30px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      border: 1px solid #eee;
+    }
+    
+    .messages {
+      max-height: 500px;
+      overflow-y: auto;
+      margin-bottom: 20px;
+    }
+    
+    .message {
+      margin-bottom: 15px;
+      padding: 15px;
+      border-radius: 10px;
+      background: #f8f9fa;
+    }
+    
+    .message-header {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+    
+    .message-time {
+      color: #666;
+      font-size: 0.9em;
+    }
+    
+    .message-content {
+      color: #333;
+    }
+    
+    .input-group {
+      display: flex;
+      gap: 10px;
+    }
+    
+    input[type="text"] {
+      flex: 1;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    
+    input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .btn {
+      background: var(--primary);
+      color: white;
+      padding: 12px 20px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn:hover {
+      background: var(--secondary);
+    }
+    
+    .participants {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .participant {
+      padding: 10px;
+      margin: 5px 0;
+      background: #f8f9fa;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .participant i {
+      color: var(--primary);
+    }
+
+    /* Responsive design */
+    @media (max-width: 768px) {
+      .main-content {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Loading states */
+    .loading {
+      opacity: 0.7;
+      pointer-events: none;
+    }
+
+    .error-message {
+      background: #ffebee;
+      color: #c62828;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      border-left: 4px solid #c62828;
+    }
+    
+    .offline-indicator {
+      background: #fff3e0;
+      color: #ef6c00;
+      padding: 8px 15px;
+      border-radius: 5px;
+      margin: 10px 0;
+      border-left: 4px solid #ef6c00;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .offline-indicator i {
+      font-size: 1.2em;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-comments"></i> Discussion Room</h1>
+      <p>{{ question }}</p>
+    </div>
+    
+    <div class="user-info">
+      <div>
+        <strong>Welcome, {{ session.user_email }}</strong>
+      </div>
+      <div>
+        <a href="{{ url_for('discussion_index') }}" class="btn">
+          <i class="fas fa-arrow-left"></i> Back to Rooms
+        </a>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      <div class="card">
+        <h2><i class="fas fa-comment-dots"></i> Discussion</h2>
+        <div id="connectivityStatus" class="offline-indicator" style="display: none;">
+          <i class="fas fa-wifi-slash"></i>
+          <span>No internet connection. Some features may not work.</span>
+        </div>
+        <div id="messages" class="messages">
+          <div class="message">
+            <div class="message-header">
+              <span>System</span>
+              <span class="message-time">Just now</span>
+            </div>
+            <div class="message-content">Loading messages...</div>
+          </div>
+        </div>
+        
+        <div class="input-group">
+          <input type="text" id="messageInput" placeholder="Type your message...">
+          <button class="btn" id="sendButton" onclick="sendMessage()">
+            <i class="fas fa-paper-plane"></i> Send
+          </button>
+        </div>
+        <div id="messageError" class="error-message" style="display: none;"></div>
+      </div>
+      
+      <div class="card">
+        <h2><i class="fas fa-users"></i> Participants</h2>
+        <ul id="participants" class="participants">
+          <li class="participant">
+            <i class="fas fa-user"></i> {{ session.user_email }}
+          </li>
+        </ul>
+        
+        <div style="margin-top: 20px;">
+          <button class="btn" id="summarizeButton" onclick="summarizeDiscussion()" style="width: 100%;">
+            <i class="fas fa-file-alt"></i> Summarize Discussion
+          </button>
+        </div>
+        
+        <div id="summary" style="margin-top: 20px; display: none;">
+          <h3><i class="fas fa-check-circle"></i> Summary</h3>
+          <div id="summaryContent"></div>
+        </div>
+        <div id="summaryError" class="error-message" style="display: none;"></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const roomId = "{{ room_id }}";
+    let currentUser = "{{ session.user_email }}";
+    let pollInterval = 5000; // 5 seconds
+    let pollTimer = null;
+    let errorCount = 0;
+    let errorState = {
+      lastShown: {},
+      cooldown: 5000 // 5 seconds between same error messages
+    };
+
+    // Mock response generator for better consistency
+    function createMockResponse(status = 200, data = {}) {
+      const jsonData = JSON.stringify(data);
+      return {
+        ok: true,
+        status: status,
+        statusText: 'OK',
+        json: async () => data,
+        text: async () => jsonData,
+        headers: new Headers({ 'Content-Type': 'application/json' })
+      };
+    }
+
+    // Enhanced fetch with comprehensive error handling
+    async function authFetch(url, options = {}) {
+      const defaultOptions = {
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          ...options.headers
+        },
+        // Add timeout support
+        timeout: options.timeout || 10000
+      };
+
+      const mergedOptions = { ...defaultOptions, ...options };
+
+      try {
+        console.log(`Making request to: ${url}`);
+        
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error(`Request timeout after ${mergedOptions.timeout}ms`)), 
+                     mergedOptions.timeout);
+        });
+        
+        // Race between fetch and timeout
+        const response = await Promise.race([
+          fetch(url, mergedOptions),
+          timeoutPromise
+        ]);
+        
+        // Handle specific HTTP status codes
+        switch (response.status) {
+          case 401: // Unauthorized
+            console.warn('Session expired, redirecting to login');
+            window.location.href = '/?session_expired=true&return_to=' + encodeURIComponent(window.location.href);
+            return null;
+            
+          case 403: // Forbidden
+            console.warn('Access forbidden (403)');
+            throw new Error('You do not have permission to access this resource.');
+            
+          case 404: // Not Found
+            console.warn(`Endpoint ${url} not found (404)`);
+            // Return mock response for missing endpoints
+            return createMockResponse(200, { 
+              messages: [],
+              participants: 1,
+              fallback: true
+            });
+            
+          case 429: // Rate Limited
+            console.warn('Rate limited, increasing poll interval');
+            pollInterval = Math.min(pollInterval * 2, 30000);
+            setupPolling();
+            throw new Error('Rate limited. Please wait...');
+            
+          case 500: // Server Error
+          case 502: // Bad Gateway
+          case 503: // Service Unavailable
+          case 504: // Gateway Timeout
+            console.error(`Server error (${response.status})`);
+            throw new Error('Server error. Please try again later.');
+            
+          default:
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+        }
+
+        return response;
+
+      } catch (error) {
+        console.error('Fetch error:', error);
+        
+        // Handle specific error types
+        if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+          console.warn('Network error - server may be unavailable');
+          // Return mock response for network errors
+          return createMockResponse(200, { 
+            messages: [],
+            participants: 1,
+            fallback: true
+          });
+        }
+        
+        if (error.message.includes('timeout')) {
+          console.warn('Request timeout');
+          return createMockResponse(200, { 
+            messages: [],
+            participants: 1,
+            fallback: true
+          });
+        }
+        
+        if (error.message.includes('404')) {
+          return createMockResponse(200, { 
+            messages: [],
+            participants: 1,
+            fallback: true
+          });
+        }
+        
+        // Re-throw other errors
+        throw error;
+      }
+    }
+
+    // Enhanced version with smarter retry logic
+    async function authFetchWithRetry(url, options = {}, maxRetries = 3) {
+      let lastError;
+      
+      for (let attempt = 0; attempt <= maxRetries; attempt++) {
+        try {
+          if (attempt > 0) {
+            console.log(`Retry attempt ${attempt} for ${url}`);
+            // Exponential backoff with jitter
+            const backoffTime = 1000 * Math.pow(2, attempt) + Math.random() * 500;
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          }
+          
+          const response = await authFetch(url, options);
+          
+          // Even if we get a response, check if it's a fallback
+          if (response && response.fallback) {
+            console.warn('Using fallback data for:', url);
+          }
+          
+          return response;
+          
+        } catch (error) {
+          lastError = error;
+          
+          // Don't retry on these errors
+          const nonRetryableErrors = [401, 403, 404];
+          const shouldNotRetry = nonRetryableErrors.some(code => 
+            error.message.includes(code.toString())
+          );
+          
+          if (shouldNotRetry) {
+            break;
+          }
+          
+          console.warn(`Attempt ${attempt + 1} failed:`, error.message);
+          
+          // If it's the last attempt, return a fallback instead of throwing
+          if (attempt === maxRetries) {
+            console.warn('All retry attempts failed, returning fallback');
+            return createMockResponse(200, { 
+              messages: [],
+              participants: 1,
+              fallback: true
+            });
+          }
+        }
+      }
+      
+      throw lastError;
+    }
+
+    // Improved connectivity check with multiple fallbacks
+    async function checkConnectivity() {
+      // Try multiple endpoints in case one is blocked
+      const testEndpoints = [
+        '/', 
+        '/favicon.ico',
+        'https://httpbin.org/get' // External fallback
+      ];
+      
+      for (const endpoint of testEndpoints) {
+        try {
+          const response = await fetch(endpoint, { 
+            method: 'HEAD',
+            cache: 'no-store',
+            timeout: 5000
+          });
+          
+          if (response.ok) {
+            return true;
+          }
+        } catch (error) {
+          console.debug(`Connectivity check failed for ${endpoint}:`, error.message);
+          // Continue to next endpoint
+        }
+      }
+      
+      return false;
+    }
+
+    // Check authentication status
+    async function checkAuthentication() {
+      try {
+        const response = await authFetchWithRetry('/session_status');
+        if (!response) return false; // Already redirected
+        
+        const data = await response.json();
+        return data.authenticated === true;
+      } catch (error) {
+        console.error('Auth check failed:', error);
+        return false;
+      }
+    }
+
+    // Load messages and participants
+    async function loadMessages() {
+      try {
+        const response = await authFetchWithRetry('/messages/' + roomId);
+        if (!response) return; // Authentication failed
+        
+        const data = await response.json();
+        
+        if (data.error) {
+          showError('messageError', data.error);
+          return;
+        }
+        
+        hideError('messageError');
+        
+        // Display messages
+        const messagesContainer = document.getElementById('messages');
+        messagesContainer.innerHTML = '';
+        
+        // Check if we're using fallback data
+        if (data.fallback) {
+          const messageDiv = document.createElement('div');
+          messageDiv.className = 'message';
+          messageDiv.innerHTML = `
+            <div class="message-header">
+              <span>System</span>
+              <span class="message-time">Just now</span>
+            </div>
+            <div class="message-content">Temporarily using offline data. Some features may be limited.</div>
+          `;
+          messagesContainer.appendChild(messageDiv);
+        }
+        
+        if (data.messages && data.messages.length > 0) {
+          data.messages.forEach(msg => {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            
+            const timestamp = new Date(msg.timestamp);
+            const timeString = timestamp.toLocaleTimeString();
+            
+            messageDiv.innerHTML = `
+              <div class="message-header">
+                <span>${msg.user || 'Anonymous'}</span>
+                <span class="message-time">${timeString}</span>
+              </div>
+              <div class="message-content">${msg.text || ''}</div>
+            `;
+            messagesContainer.appendChild(messageDiv);
+          });
+        } else if (!data.fallback) {
+          messagesContainer.innerHTML = `
+            <div class="message">
+              <div class="message-content">No messages yet. Start the discussion!</div>
+            </div>
+          `;
+        }
+        
+        // Scroll to bottom
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        
+        // Display participants
+        updateParticipants(data.participants || 1);
+        
+        errorCount = 0; // Reset error count on success
+        
+      } catch (error) {
+        console.error('Error loading messages:', error);
+        errorCount++;
+        
+        if (errorCount > 3) {
+          // Too many errors, increase polling interval
+          pollInterval = Math.min(pollInterval * 2, 30000);
+          setupPolling();
+        }
+        
+        showError('messageError', 'Failed to load messages. Retrying...');
+      }
+    }
+
+    function updateParticipants(participantCount) {
+      const participantsContainer = document.getElementById('participants');
+      participantsContainer.innerHTML = '';
+      
+      // Add current user
+      const currentUserLi = document.createElement('li');
+      currentUserLi.className = 'participant';
+      currentUserLi.innerHTML = `<i class="fas fa-user"></i> ${currentUser}`;
+      participantsContainer.appendChild(currentUserLi);
+      
+      // Add other participants count
+      if (participantCount > 1) {
+        const othersLi = document.createElement('li');
+        othersLi.className = 'participant';
+        othersLi.innerHTML = `<i class="fas fa-users"></i> ${participantCount - 1} other participant(s)`;
+        participantsContainer.appendChild(othersLi);
+      }
+    }
+
+    // Send message
+    async function sendMessage() {
+      const input = document.getElementById('messageInput');
+      const button = document.getElementById('sendButton');
+      const text = input.value.trim();
+      
+      if (!text) return;
+      
+      try {
+        button.classList.add('loading');
+        hideError('messageError');
+        
+        const response = await authFetchWithRetry('/message/' + roomId, {
+          method: 'POST',
+          body: JSON.stringify({
+            user: currentUser,
+            text: text
+          })
+        });
+        
+        if (!response) return; // Authentication failed
+        
+        const result = await response.json();
+        
+        if (result.ok) {
+          input.value = '';
+          loadMessages(); // Reload messages
+        } else {
+          showError('messageError', result.error || 'Failed to send message', true);
+        }
+      } catch (error) {
+        console.error('Error sending message:', error);
+        showError('messageError', 'Failed to send message. Please try again.', true);
+      } finally {
+        button.classList.remove('loading');
+      }
+    }
+
+    // Summarize discussion
+    async function summarizeDiscussion() {
+      const button = document.getElementById('summarizeButton');
+      
+      try {
+        button.classList.add('loading');
+        hideError('summaryError');
+        
+        const response = await authFetchWithRetry('/summarize/' + roomId, {
+          method: 'POST'
+        });
+        
+        if (!response) return; // Authentication failed
+        
+        const data = await response.json();
+        
+        if (data.summary) {
+          document.getElementById('summaryContent').textContent = data.summary;
+          document.getElementById('summary').style.display = 'block';
+          hideError('summaryError');
+        } else if (data.error) {
+          showError('summaryError', data.error);
+        }
+      } catch (error) {
+        console.error('Error summarizing discussion:', error);
+        showError('summaryError', 'Failed to summarize discussion. Please try again.');
+      } finally {
+        button.classList.remove('loading');
+      }
+    }
+
+    function setupPolling() {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = setInterval(loadMessages, pollInterval);
+    }
+
+    function showError(elementId, message, isPersistent = false) {
+      const now = Date.now();
+      const element = document.getElementById(elementId);
+      
+      // Check if we recently showed this same error
+      if (errorState.lastShown[elementId] && 
+          now - errorState.lastShown[elementId] < errorState.cooldown) {
+        return;
+      }
+      
+      if (element) {
+        element.textContent = message;
+        element.style.display = 'block';
+        errorState.lastShown[elementId] = now;
+        
+        if (!isPersistent) {
+          // Auto-hide after 5 seconds
+          setTimeout(() => {
+            hideError(elementId);
+          }, 5000);
+        }
+      }
+    }
+
+    function hideError(elementId) {
+      const element = document.getElementById(elementId);
+      if (element) {
+        element.style.display = 'none';
+      }
+    }
+
+    // Initialize the page
+    async function initPage() {
+      try {
+        console.log('Initializing discussion page...');
+        
+        // Quick connectivity check
+        const isOnline = await checkConnectivity();
+        if (!isOnline) {
+          document.getElementById('connectivityStatus').style.display = 'flex';
+        }
+        
+        // Try to check authentication
+        try {
+          const isAuthenticated = await checkAuthentication();
+          if (!isAuthenticated) {
+            return; // Already redirected
+          }
+        } catch (authError) {
+          console.warn('Auth check failed, but continuing:', authError);
+          // Continue without authentication check
+        }
+        
+        // Start loading messages and setup polling
+        loadMessages();
+        setupPolling();
+        
+      } catch (error) {
+        console.error('Failed to initialize page:', error);
+        showError('messageError', 'Failed to initialize. Please refresh the page.');
+      }
+    }
+
+    // Event listeners
+    document.getElementById('messageInput').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    });
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', () => {
+      if (pollTimer) clearInterval(pollTimer);
+    });
+
+    // Start initialization when page loads
+    document.addEventListener('DOMContentLoaded', initPage);
+  </script>
+</body>
+</html>

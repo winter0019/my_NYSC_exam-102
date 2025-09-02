@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Free Trial Quiz - NYSC Exam Prep</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3a0ca3;
+      --accent: #f72585;
+      --light: #f8f9fa;
+      --dark: #212529;
+      --success: #4cc9f0;
+      --warning: #f9c74f;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+    
+    .user-info {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 20px;
+      background: var(--light);
+      border-bottom: 1px solid #eee;
+    }
+    
+    .main-content {
+      padding: 30px;
+    }
+    
+    .card {
+      background: white;
+      border-radius: 15px;
+      padding: 25px;
+      margin-bottom: 25px;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+      border: 1px solid #eee;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+    
+    select, input {
+      width: 100%;
+      padding: 12px;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+    
+    select:focus, input:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .btn {
+      background: var(--primary);
+      color: white;
+      padding: 15px 30px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+    }
+    
+    .btn:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+    }
+    
+    .btn-secondary {
+      background: var(--secondary);
+    }
+    
+    .quiz-result {
+      display: none;
+      margin-top: 30px;
+    }
+    
+    .question {
+      background: var(--light);
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .options {
+      margin-top: 15px;
+    }
+    
+    .option {
+      display: block;
+      margin: 10px 0;
+      padding: 12px;
+      background: white;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .option:hover {
+      border-color: var(--primary);
+      background: #f8f9ff;
+    }
+    
+    .discussion-list {
+      list-style: none;
+    }
+    
+    .discussion-list li {
+      background: var(--light);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 4px solid var(--primary);
+    }
+    
+    .navigation {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      border: 4px solid #f3f3f3;
+      border-top: 4px solid var(--primary);
+      border-radius: 50%;
+      width: 40px;
+      height: 40px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @media (max-width: 768px) {
+      .container {
+        margin: 10px;
+        border-radius: 15px;
+      }
+      
+      .header h1 {
+        font-size: 2em;
+      }
+      
+      .main-content {
+        padding: 20px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1><i class="fas fa-graduation-cap"></i> Free Trial Quiz</h1>
+      <p>Test your knowledge with our free quiz generator</p>
+    </div>
+    
+    <div class="user-info">
+      <div>
+        <strong>Welcome, {{ email }}</strong>
+      </div>
+      <div>
+        <a href="{{ url_for('dashboard') }}" class="btn btn-secondary">
+          <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+      </div>
+    </div>
+    
+    <div class="main-content">
+      <div class="card">
+        <h2><i class="fas fa-cog"></i> Quiz Settings</h2>
+        <form id="quizForm">
+          <div class="form-group">
+            <label for="gl"><i class="fas fa-chart-line"></i> Grade Level:</label>
+            <select id="gl" name="gl" required>
+              <option value="GL8">GL8</option>
+              <option value="GL10" selected>GL10</option>
+              <option value="GL12">GL12</option>
+              <option value="GL14">GL14</option>
+              <option value="GL16">GL16</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label for="subject"><i class="fas fa-book"></i> Subject:</label>
+            <select id="subject" name="subject" required>
+              <option value="public-service-rules">Public Service Rules</option>
+              <option value="nysc">NYSC Operations</option>
+              <option value="current-affairs">Current Affairs</option>
+              <option value="general-knowledge">General Knowledge</option>
+            </select>
+          </div>
+          
+          <button type="submit" class="btn">
+            <i class="fas fa-magic"></i> Generate Quiz
+          </button>
+        </form>
+      </div>
+      
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Generating your quiz... This may take a moment.</p>
+      </div>
+      
+      <div class="quiz-result" id="quizResult">
+        <div class="card">
+          <h2><i class="fas fa-tasks"></i> Generated Quiz</h2>
+          <div id="quizContent"></div>
+        </div>
+        
+        <div class="card" id="discussionSection" style="display: none;">
+          <h2><i class="fas fa-comments"></i> Discussion Questions</h2>
+          <ul class="discussion-list" id="discussionContent"></ul>
+        </div>
+        
+        <div class="navigation">
+          <button class="btn" onclick="window.location.href='{{ url_for('free_trial_quiz') }}'">
+            <i class="fas fa-redo"></i> Generate Another Quiz
+          </button>
+          <button class="btn btn-secondary" onclick="window.location.href='{{ url_for('discussion_index') }}'">
+            <i class="fas fa-users"></i> Join Discussions
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById("quizForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      
+      const formData = {
+        gl: document.getElementById("gl").value,
+        subject: document.getElementById("subject").value
+      };
+      
+      const loading = document.getElementById("loading");
+      const quizResult = document.getElementById("quizResult");
+      const quizContent = document.getElementById("quizContent");
+      const discussionSection = document.getElementById("discussionSection");
+      const discussionContent = document.getElementById("discussionContent");
+      
+      loading.style.display = "block";
+      quizResult.style.display = "none";
+      discussionSection.style.display = "none";
+      
+      try {
+        const res = await fetch("/generate_free_quiz", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(formData)
+        });
+        
+        const data = await res.json();
+        
+        if (data.error) {
+          quizContent.innerHTML = `<div style="color: red; padding: 20px; text-align: center;">
+            <i class="fas fa-exclamation-triangle" style="font-size: 3em;"></i>
+            <h3>Error</h3>
+            <p>${data.error}</p>
+          </div>`;
+        } else {
+          // Display quiz questions
+          let html = "";
+          data.quiz.forEach((q, index) => {
+            html += `<div class="question">
+              <h3>Question ${index + 1}:</h3>
+              <p>${q.question}</p>
+              <div class="options">`;
+            
+            q.options.forEach(opt => {
+              html += `<label class="option">
+                <input type="radio" name="q${index}" value="${opt}">
+                ${opt}
+              </label>`;
+            });
+            
+            html += `</div></div>`;
+          });
+          
+          quizContent.innerHTML = html;
+          
+          // Display discussion questions
+          if (data.discussions && data.discussions.length > 0) {
+            discussionContent.innerHTML = "";
+            data.discussions.forEach(d => {
+              discussionContent.innerHTML += `<li>${d.q}</li>`;
+            });
+            discussionSection.style.display = "block";
+          }
+        }
+        
+        quizResult.style.display = "block";
+        
+      } catch (error) {
+        quizContent.innerHTML = `<div style="color: red; padding: 20px; text-align: center;">
+          <i class="fas fa-exclamation-triangle" style="font-size: 3em;"></i>
+          <h3>Network Error</h3>
+          <p>Please check your connection and try again.</p>
+        </div>`;
+        quizResult.style.display = "block";
+      } finally {
+        loading.style.display = "none";
+      }
+    });
+  </script>
+</body>
+</html>

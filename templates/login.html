@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - NYSC Exam Prep</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #4361ee;
+      --secondary: #3a0ca3;
+      --success: #4cc9f0;
+      --warning: #f9c74f;
+      --danger: #f72585;
+      --light: #f8f9fa;
+      --dark: #212529;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 400px;
+      background: white;
+      border-radius: 20px;
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+      overflow: hidden;
+    }
+    
+    .header {
+      background: var(--primary);
+      color: white;
+      padding: 30px;
+      text-align: center;
+    }
+    
+    .header h2 {
+      margin: 0;
+      font-size: 2em;
+    }
+    
+    .header p {
+      margin: 10px 0 0 0;
+      opacity: 0.9;
+    }
+    
+    .form-container {
+      padding: 30px;
+    }
+    
+    .form-group {
+      margin-bottom: 20px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+    
+    input[type="email"],
+    input[type="password"] {
+      width: 100%;
+      padding: 15px;
+      border: 2px solid #e9ecef;
+      border-radius: 10px;
+      font-size: 16px;
+      transition: border-color 0.3s ease;
+    }
+    
+    input[type="email"]:focus,
+    input[type="password"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      padding: 15px;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+    }
+    
+    .btn:hover {
+      background: var(--secondary);
+      transform: translateY(-2px);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+    
+    .demo-credentials {
+      background: var(--light);
+      padding: 15px;
+      border-radius: 10px;
+      margin-top: 20px;
+      font-size: 14px;
+    }
+    
+    .demo-credentials h4 {
+      margin-bottom: 10px;
+      color: var(--dark);
+    }
+    
+    .demo-credentials p {
+      margin: 5px 0;
+      color: #666;
+    }
+    
+    .flash-messages {
+      margin-bottom: 20px;
+    }
+    
+    .flash-message {
+      padding: 12px;
+      border-radius: 8px;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+    
+    .flash-error {
+      background: #ffebee;
+      color: #c62828;
+      border-left: 4px solid #c62828;
+    }
+    
+    .flash-success {
+      background: #e8f5e8;
+      color: #2e7d32;
+      border-left: 4px solid #2e7d32;
+    }
+    
+    .flash-info {
+      background: #e3f2fd;
+      color: #1565c0;
+      border-left: 4px solid #1565c0;
+    }
+    
+    .footer {
+      text-align: center;
+      padding: 20px;
+      color: #666;
+      font-size: 14px;
+    }
+    
+    .footer a {
+      color: var(--primary);
+      text-decoration: none;
+    }
+    
+    .footer a:hover {
+      text-decoration: underline;
+    }
+    
+    .password-toggle {
+      position: relative;
+    }
+    
+    .toggle-password {
+      position: absolute;
+      right: 15px;
+      top: 50%;
+      transform: translateY(-50%);
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+    }
+    
+    @media (max-width: 480px) {
+      .container {
+        margin: 10px;
+      }
+      
+      .form-container {
+        padding: 20px;
+      }
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 10px;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 20px;
+      height: 20px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2><i class="fas fa-graduation-cap"></i> NYSC Exam Prep</h2>
+      <p>Sign in to your account</p>
+    </div>
+    
+    <div class="form-container">
+      <!-- Flash Messages -->
+      <div class="flash-messages">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="flash-message flash-{{ category }}">
+                <i class="fas fa-{% if category == 'error' %}exclamation-circle{% elif category == 'success' %}check-circle{% else %}info-circle{% endif %}"></i>
+                {{ message }}
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+        
+        {% if session_expired %}
+          <div class="flash-message flash-info">
+            <i class="fas fa-info-circle"></i>
+            Your session has expired. Please login again.
+          </div>
+        {% endif %}
+      </div>
+
+      <form method="POST" action="{{ url_for('login') }}" id="loginForm">
+        <input type="hidden" name="return_to" value="{{ request.args.get('return_to', '') }}">
+        
+        <div class="form-group">
+          <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+          <input type="email" id="email" name="email" required placeholder="Enter your email address">
+        </div>
+        
+        <div class="form-group password-toggle">
+          <label for="password"><i class="fas fa-lock"></i> Password</label>
+          <input type="password" id="password" name="password" required placeholder="Enter your password">
+          <button type="button" class="toggle-password" onclick="togglePassword()">
+            <i class="fas fa-eye"></i>
+          </button>
+        </div>
+        
+        <button type="submit" class="btn" id="loginButton">
+          <i class="fas fa-sign-in-alt"></i> Sign In
+        </button>
+        
+        <div class="loading" id="loading">
+          <div class="spinner"></div>
+          <p>Signing in...</p>
+        </div>
+      </form>
+      
+      <div class="demo-credentials">
+        <h4><i class="fas fa-info-circle"></i> Demo Credentials</h4>
+        <p><strong>Email:</strong> Any email from allowed list</p>
+        <p><strong>Password:</strong> password123</p>
+        <p><small>Contact admin to add your email to the allowed list</small></p>
+      </div>
+    </div>
+    
+    <div class="footer">
+      <p>Need help? <a href="mailto:admin@nyscexamprep.com">Contact Administrator</a></p>
+      <p>&copy; 2024 NYSC Exam Prep. All rights reserved.</p>
+    </div>
+  </div>
+
+  <script>
+    function togglePassword() {
+      const passwordInput = document.getElementById('password');
+      const toggleButton = document.querySelector('.toggle-password i');
+      
+      if (passwordInput.type === 'password') {
+        passwordInput.type = 'text';
+        toggleButton.classList.remove('fa-eye');
+        toggleButton.classList.add('fa-eye-slash');
+      } else {
+        passwordInput.type = 'password';
+        toggleButton.classList.remove('fa-eye-slash');
+        toggleButton.classList.add('fa-eye');
+      }
+    }
+    
+    document.getElementById('loginForm').addEventListener('submit', function(e) {
+      const button = document.getElementById('loginButton');
+      const loading = document.getElementById('loading');
+      
+      button.style.display = 'none';
+      loading.style.display = 'block';
+      
+      // Add a small delay to show the loading state
+      setTimeout(() => {
+        button.style.display = 'block';
+        loading.style.display = 'none';
+      }, 2000);
+    });
+    
+    // Auto-focus on email field
+    document.addEventListener('DOMContentLoaded', function() {
+      document.getElementById('email').focus();
+      
+      // Check if there's a return_to parameter and preserve it
+      const urlParams = new URLSearchParams(window.location.search);
+      const returnTo = urlParams.get('return_to');
+      if (returnTo) {
+        document.querySelector('input[name="return_to"]').value = returnTo;
+      }
+      
+      // Check for session expired parameter
+      if (urlParams.get('session_expired')) {
+        // Show session expired message
+        const flashContainer = document.querySelector('.flash-messages');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = 'flash-message flash-info';
+        messageDiv.innerHTML = '<i class="fas fa-info-circle"></i> Your session has expired. Please login again.';
+        flashContainer.appendChild(messageDiv);
+      }
+    });
+    
+    // Handle Enter key press
+    document.addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') {
+        const focused = document.activeElement;
+        if (focused.tagName !== 'TEXTAREA' && focused.tagName !== 'INPUT') {
+          document.getElementById('loginForm').dispatchEvent(new Event('submit'));
+        }
+      }
+    });
+  </script>
+</body>
+</html>
