@@ -7,3 +7,4 @@ gunicorn
 PyPDF2
 pytesseract
 PyMuPDF
+Flask-Limiter
