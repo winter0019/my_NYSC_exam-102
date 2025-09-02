@@ -325,9 +325,9 @@
     
     <div class="card">
       <h3><i class="fas fa-user"></i> User Information</h3>
-      <p>Welcome, <strong>{{ email }}</strong></p>
-      <p><strong>Grade Level:</strong> {{ session.get('user_grade', 'GL10') }}</p>
-      <p><strong>IP Address:</strong> {{ request.remote_addr }}</p>
+      <p>Welcome, <strong>user@example.com</strong></p>
+      <p><strong>Grade Level:</strong> GL10</p>
+      <p><strong>IP Address:</strong> 127.0.0.1</p>
       <p><strong>Status:</strong> <span style="color: var(--accent);">Active</span></p>
     </div>
 
@@ -395,41 +395,29 @@
 
     <div class="card">
       <h3><i class="fas fa-history"></i> Your Recent Activity</h3>
-      {% if history %}
-        <ul class="activity-list">
-          {% for item in history %}
-            <li class="activity-item">
-              <strong>{{ item.get("subject", "Unknown Subject") }}</strong> - 
-              Score: {{ item.get("score", "N/A") }} | 
-              Date: {{ item.get("timestamp", "") | format_datetime }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p>No activity yet. Generate your first quiz to get started!</p>
-      {% endif %}
+      <p>No activity yet. Generate your first quiz to get started!</p>
     </div>
 
     <div class="card">
       <h3><i class="fas fa-cogs"></i> Options</h3>
       <ul class="options-list">
         <li class="option-item">
-          <a href="{{ url_for('free_trial_quiz') }}">
+          <a href="#">
             <i class="fas fa-bolt"></i> Free Trial Quiz
           </a>
         </li>
         <li class="option-item">
-          <a href="{{ url_for('discussion_index') }}">
+          <a href="#">
             <i class="fas fa-comments"></i> Join Discussion Room
           </a>
         </li>
         <li class="option-item">
-          <a href="{{ url_for('create_room') }}">
+          <a href="#">
             <i class="fas fa-plus-circle"></i> Create Discussion Room
           </a>
         </li>
         <li class="option-item">
-          <a href="{{ url_for('dashboard') }}">
+          <a href="#">
             <i class="fas fa-sync-alt"></i> Refresh Dashboard
           </a>
         </li>
@@ -438,6 +426,40 @@
   </div>
 
   <script>
+    // Sample quiz data structure
+    const sampleQuizData = {
+      quiz: [
+        {
+          question: "What is the primary goal of Human Resource Management (HRM) in the NYSC, according to the provided text?",
+          options: [
+            "To ensure the NYSC scheme is profitable",
+            "To maintain proper relations with employees and their trade unions",
+            "To maximize employee performance in service of the NYSC's objectives"
+          ],
+          correct: "C"
+        },
+        {
+          question: "According to the text, what is a significant challenge faced by the NYSC's HRM Department?",
+          options: [
+            "Lack of funding",
+            "A disconnect in HRM operational procedures and a lack of consistent standards across branches",
+            "Insufficient training for HRM staff"
+          ],
+          correct: "B"
+        },
+        {
+          question: "Which of the following is NOT a function of the NYSC's HRM Department as listed in the text?",
+          options: [
+            "Recruitment and selection of staff",
+            "Organizing social events for employees",
+            "Performance management and appraisal",
+            "Employee training and development"
+          ],
+          correct: "B"
+        }
+      ]
+    };
+
     // Enhanced fetch with authentication handling
     async function authFetch(url, options = {}) {
       const defaultOptions = {
@@ -485,18 +507,29 @@
       }, 5000);
     }
 
-    // Format date for display
-    function formatDate(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-    }
-
     // Quiz data storage
     let currentQuizData = null;
 
     document.getElementById("quizForm").addEventListener("submit", async function(e) {
       e.preventDefault();
       
+      // For demo purposes, we'll use the sample data
+      // In a real implementation, you would use the code below to fetch from your server
+      
+      // Simulate API call delay
+      setLoading(true);
+      setTimeout(() => {
+        currentQuizData = sampleQuizData;
+        renderQuiz(currentQuizData);
+        document.getElementById('quizResult').style.display = "block";
+        setLoading(false);
+        
+        // Scroll to quiz results
+        document.getElementById('quizResult').scrollIntoView({ behavior: 'smooth' });
+      }, 1500);
+      
+      /* 
+      // Actual implementation would be something like this:
       const formData = new FormData(this);
       const quizDiv = document.getElementById("quizResult");
       const quizContent = document.getElementById("quizContent");
@@ -531,9 +564,10 @@
       } finally {
         setLoading(false);
       }
+      */
     });
 
-    // Render quiz questions
+    // Render quiz questions with full text options
     function renderQuiz(data) {
       const quizContent = document.getElementById("quizContent");
       let html = '<div class="quiz-container">';
@@ -649,25 +683,6 @@
       // Here you would typically send the results to your backend
       // to store in the user's history
     }
-
-    // Add datetime formatting helper
-    function formatDateTime(dateString) {
-      if (!dateString) return 'N/A';
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-      } catch (e) {
-        return dateString;
-      }
-    }
-
-    // Format all datetime elements on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      const dateElements = document.querySelectorAll('[data-datetime]');
-      dateElements.forEach(el => {
-        el.textContent = formatDateTime(el.getAttribute('data-datetime'));
-      });
-    });
   </script>
 </body>
 </html>
