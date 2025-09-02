@@ -8,3 +8,4 @@ PyPDF2
 pytesseract
 PyMuPDF
 Flask-Limiter
+firebase_admin
