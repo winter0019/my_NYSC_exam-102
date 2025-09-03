@@ -310,6 +310,7 @@ def login():
                 return jsonify({"ok": True, "role": role})
 
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+
         except Exception as e:
             logger.error(f"Login failed: {e}")
             return jsonify({"ok": False, "error": "Authentication error"}), 500
@@ -567,5 +568,6 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
