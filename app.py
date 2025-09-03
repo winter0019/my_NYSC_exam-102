@@ -65,7 +65,37 @@ except Exception as e:
 
 # --- Constants ---
 ALLOWED_EXTENSIONS = {"pdf", "docx", "png", "jpg", "jpeg"}
-ALLOWED_EMAILS = {"admin@nysc.gov.ng", "staff@nysc.gov.ng"}
+ALLOWED_USERS = {
+    "deborahibiyinka@gmail.com",
+    "feuri73@gmail.com",
+    "zainabsalawu1989@gmail.com",
+    "alograce69@gmail.com",
+    "abdullahimuhd790@gmail.com",
+    "davidirene2@gmail.com",
+    "maryaugie2@gmail.com",
+    "ashami73@gmail.com",
+    "comzelhua@gmail.com",
+    "niyiolaniyi@gmail.com",
+    "itszibnisah@gmail.com",
+    "olayemisiola06@gmail.com",
+    "shemasalik@gmail.com",
+    "akawupeter2@gmail.com",
+    "pantuyd@gmail.com",
+    "omnibuszara@gmail.com",
+    "mssphartyma@gmail.com",
+    "assyy.au@gmail.com",
+    "shenyshehu@gmail.com",
+    "isadeeq17@gmail.com",
+    "muhammadsadanu@gmail.com",
+    "rukitafida@gmail.com",
+    "dangalan20@gmail.com",
+    "winter19@gmail.com",
+    "adedoyinfehintola@gmail.com",
+}
+# Normalize emails to lowercase
+ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
+# The original ALLOWED_EMAILS is no longer used, but if needed, it could be combined with the new list.
+# ALLOWED_EMAILS = {"admin@nysc.gov.ng", "staff@nysc.gov.ng"}
 
 rooms = {}  # in-memory fallback
 cache = {}
@@ -138,7 +168,8 @@ def login():
     if request.method == "POST":
         email = request.form.get("email", "").lower()
         password = request.form.get("password", "")
-        if email not in ALLOWED_EMAILS:
+        # Use the new ALLOWED_USERS list for login verification
+        if email not in ALLOWED_USERS:
             return render_template("login.html", error="Unauthorized email")
 
         try:
@@ -165,6 +196,7 @@ def logout():
 @login_required
 def dashboard():
     user = session["user_email"]
+    # You might want to update this to check against ALLOWED_USERS if "admin" is in that list
     if user == "admin@nysc.gov.ng":
         return render_template("admin_dashboard.html", email=user)
     return render_template("dashboard.html", email=user)
