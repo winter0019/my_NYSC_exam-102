@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYSC Exam Dashboard</title>
-    <!-- Using a slightly newer version of Font Awesome for icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -219,6 +218,7 @@
             border-radius: 5px;
             margin: 10px 0;
             border-left: 4px solid #dc3545;
+            display: none;
         }
         
         .success-message {
@@ -228,6 +228,7 @@
             border-radius: 5px;
             margin: 10px 0;
             border-left: 4px solid #28a745;
+            display: none;
         }
 
         /* Quiz specific styles */
@@ -365,7 +366,7 @@
 
                 <div class="form-group">
                     <label><strong>Main File (DOCX, PDF, or Image):</strong></label>
-                    <input type="file" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" required>
+                    <input type="file" id="mainFile" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" required>
                 </div>
 
                 <div class="form-group">
@@ -382,7 +383,7 @@
                 <div class="spinner"></div>
                 <p>Generating your quiz...</p>
             </div>
-
+            
             <div id="quizResult" class="quiz-box" style="display:none;">
                 <h4><i class="fas fa-tasks"></i> Generated Quiz</h4>
                 <div id="quizContent"></div>
@@ -400,8 +401,8 @@
                     Your score: <span id="score">0</span> out of <span id="total">0</span>
                 </div>
             </div>
-            <div id="errorMessage" class="error-message" style="display:none;"></div>
-            <div id="successMessage" class="success-message" style="display:none;"></div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
         </div>
 
         <div class="card">
@@ -447,69 +448,26 @@
     </div>
 
     <script type="module">
-        // Updated Firebase SDK versions to 11.6.1 as per best practices.
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        // Switched to addDoc for adding new documents.
         import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Set Firebase logging level to debug for detailed logs
         setLogLevel('debug');
 
-        // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        // --- Firebase Initialization ---
+        
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getFirestore(app);
         
-        // State variables
         let userId = null;
         let isAuthReady = false;
-
-        // Sample quiz data structure (for demonstration purposes)
-        const sampleQuizData = {
-            quiz: [
-                {
-                    question: "What is the primary goal of Human Resource Management (HRM) in the NYSC, according to the provided text?",
-                    options: [
-                        "To ensure the NYSC scheme is profitable",
-                        "To maintain proper relations with employees and their trade unions",
-                        "To maximize employee performance in service of the NYSC's objectives"
-                    ],
-                    correct: "C"
-                },
-                {
-                    question: "According to the text, what is a significant challenge faced by the NYSC's HRM Department?",
-                    options: [
-                        "Lack of funding",
-                        "A disconnect in HRM operational procedures and a lack of consistent standards across branches",
-                        "Insufficient training for HRM staff"
-                    ],
-                    correct: "B"
-                },
-                {
-                    question: "Which of the following is NOT a function of the NYSC's HRM Department as listed in the text?",
-                    options: [
-                        "Recruitment and selection of staff",
-                        "Organizing social events for employees",
-                        "Performance management and appraisal",
-                        "Employee training and development"
-                    ],
-                    correct: "B"
-                }
-            ]
-        };
-        
         let currentQuizData = null;
 
         // --- Utility Functions ---
-
-        // Custom modal for alerts to replace window.alert
         function showModal(message) {
             document.getElementById('modalMessage').textContent = message;
             document.getElementById('customModal').style.display = 'block';
@@ -566,6 +524,7 @@
             document.getElementById('submitQuizBtn').style.display = 'block';
             document.getElementById('newQuizBtn').style.display = 'none';
             document.getElementById('scoreContainer').style.display = 'none';
+            document.getElementById('quizResult').style.display = "block";
         }
         
         // --- Firebase Authentication and Data Logic ---
@@ -576,18 +535,14 @@
                 document.getElementById('userId').textContent = userId;
                 isAuthReady = true;
 
-                // Subscribe to real-time updates for quiz history
                 const userQuizHistoryRef = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
                 
-                // Firestore no longer supports orderBy on un-indexed collections by default.
-                // Fetch all docs and sort them in memory.
                 onSnapshot(userQuizHistoryRef, (snapshot) => {
                     const activityList = document.getElementById('activityList');
                     if (snapshot.empty) {
                         activityList.innerHTML = "<p>No activity yet. Generate your first quiz to get started!</p>";
                     } else {
                         const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        // Sort the documents by timestamp in descending order in memory
                         docs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
                         activityList.innerHTML = "";
@@ -623,7 +578,6 @@
             }
         });
 
-        // Save quiz result to Firestore
         async function saveQuizResult(score, total, subject) {
             if (!userId) {
                 console.error("User ID is not available. Cannot save quiz result.");
@@ -631,7 +585,6 @@
             }
 
             try {
-                // Using addDoc to automatically generate a new document ID
                 const quizHistoryRef = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
                 await addDoc(quizHistoryRef, {
                     score: score,
@@ -646,23 +599,124 @@
             }
         }
 
+        // Handles file reading and conversion to Base64
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+        
         // --- Event Listeners ---
         window.onload = function() {
             document.getElementById("quizForm").addEventListener("submit", async function(e) {
                 e.preventDefault();
 
-                // For now, this is a simulated action. In a real app, this would be a fetch call.
                 setLoading(true);
-                const subject = this.subject.value;
-                const file = this.file.files[0];
+                document.getElementById('quizResult').style.display = 'none';
 
-                setTimeout(() => {
-                    currentQuizData = sampleQuizData;
-                    renderQuiz(currentQuizData);
-                    document.getElementById('quizResult').style.display = "block";
+                const subject = this.subject.value;
+                const gradeLevel = this.gl.value;
+                const mainFile = this.file.files[0];
+                
+                if (!mainFile) {
+                    showError("Please select a file to generate a quiz.");
+                    setLoading(false);
+                    return;
+                }
+
+                try {
+                    // Read the main file and create a prompt for the LLM
+                    let fileContent = await readFileAsBase64(mainFile);
+                    let mimeType = mainFile.type;
+                    let prompt = `Generate a 3-question multiple-choice quiz for a ${gradeLevel} exam on the subject of "${subject}". Ensure each question has 3-4 options and a single correct answer. The quiz should be based on the provided document. The quiz should be returned in a structured JSON format with a 'quiz' array, each object having a 'question' string, 'options' array of strings, and a 'correct' answer string (A, B, C, or D).
+
+                    Example JSON format:
+                    {
+                      "quiz": [
+                        {
+                          "question": "Question text...",
+                          "options": ["Option A", "Option B", "Option C"],
+                          "correct": "B"
+                        }
+                      ]
+                    }
+                    `;
+                    
+                    // Create the API payload
+                    const payload = {
+                        contents: [
+                            {
+                                role: "user",
+                                parts: [
+                                    { text: prompt },
+                                    {
+                                        inlineData: {
+                                            mimeType: mimeType,
+                                            data: fileContent
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "quiz": {
+                                        "type": "ARRAY",
+                                        "items": {
+                                            "type": "OBJECT",
+                                            "properties": {
+                                                "question": { "type": "STRING" },
+                                                "options": {
+                                                    "type": "ARRAY",
+                                                    "items": { "type": "STRING" }
+                                                },
+                                                "correct": { "type": "STRING" }
+                                            },
+                                            "propertyOrdering": ["question", "options", "correct"]
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    };
+                    
+                    // Make the API call to generate the quiz
+                    const apiKey = "";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`API response was not ok: ${response.status} - ${errorText}`);
+                    }
+
+                    const result = await response.json();
+                    const jsonPart = result.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                    if (jsonPart) {
+                        currentQuizData = JSON.parse(jsonPart);
+                        renderQuiz(currentQuizData);
+                    } else {
+                        showError("Failed to generate quiz. The model response was empty or malformed.");
+                    }
+                } catch (error) {
+                    console.error("Error during quiz generation:", error);
+                    showError(`Failed to generate quiz: ${error.message}`);
+                } finally {
                     setLoading(false);
                     document.getElementById('quizResult').scrollIntoView({ behavior: 'smooth' });
-                }, 1500);
+                }
             });
 
             document.getElementById('submitQuizBtn').addEventListener('click', function() {
@@ -704,7 +758,6 @@
                 document.getElementById('submitQuizBtn').style.display = 'none';
                 document.getElementById('newQuizBtn').style.display = 'block';
                 
-                // Save the result to Firestore
                 saveQuizResult(score, total, subject);
             });
 
@@ -717,7 +770,6 @@
             document.getElementById('logoutBtn').addEventListener('click', async () => {
                 try {
                     await signOut(auth);
-                    // Clear user info on logout
                     document.getElementById('userEmail').textContent = 'Loading...';
                     document.getElementById('userId').textContent = 'Loading...';
                     showModal("You have been logged out successfully.");
@@ -727,7 +779,6 @@
                 }
             });
 
-            // Set placeholder actions for other buttons
             document.getElementById('freeTrialBtn').addEventListener('click', (e) => {
                 e.preventDefault();
                 showModal("This button would generate a pre-loaded free trial quiz.");
