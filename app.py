@@ -386,9 +386,17 @@ def quiz():
 @app.route("/generate_quiz", methods=["POST"])
 @login_required
 def generate_quiz():
+    """
+    Frontend (quiz.html) posts FormData with keys:
+      - document (file: pdf/docx/image)
+      - grade
+      - subject
+    Responds with:
+      { "questions": [ { "question": str, "options": [..], "answer": str } ] }
+    """
     try:
         if "document" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
+            return jsonify({"error": "No file uploaded (expecting field 'document')"}), 400
 
         file = request.files["document"]
         if not file or not allowed_file(file.filename):
@@ -409,25 +417,94 @@ def generate_quiz():
             except Exception:
                 pass
 
-        if not context_text.strip():
-            logger.warning("⚠️ No text extracted from uploaded file")
-            return jsonify({"error": "Could not extract any text from file"}), 400
+        if not context_text:
+            return jsonify({"error": "Could not extract text from the uploaded file"}), 400
 
+        # --- Cache key ---
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "genquiz")
         cached = cache_get(cache_key)
         if cached:
             return jsonify(cached)
 
+        # --- Call Gemini ---
         quiz = call_gemini_for_quiz(context_text, subject, grade)
 
-        # ✅ Validate quiz structure
-        if not quiz or "questions" not in quiz or not quiz["questions"]:
-            logger.error("⚠️ Gemini returned invalid quiz data")
-            return jsonify({"error": "AI failed to generate quiz"}), 500
+        # --- Safety checks ---
+        if not quiz or "questions" not in quiz or not isinstance(quiz["questions"], list):
+            logger.error("Gemini returned invalid quiz structure")
+            return jsonify({"error": "Quiz generation failed (invalid structure)"}), 500
 
-        cache_set(cache_key, quiz, 10)
+        # Normalize each question
+        safe_questions = []
+        for q in quiz["questions"]:
+            question = q.get("question", "").strip()
+            options = q.get("options", []) or []
+            answer = q.get("answer", "").strip()
+
+            # Ensure at least 4 options (pad with N/A if missing)
+            if isinstance(options, dict):
+                keys = ["A", "B", "C", "D"]
+                options = [options.get(k) for k in keys if options.get(k)]
+            while len(options) < 4:
+                options.append("N/A")
+            options = options[:4]
+
+            if question and options:
+                safe_questions.append({
+                    "question": question,
+                    "options": options,
+                    "answer": answer if answer in options else ""
+                })
+
+        if not safe_questions:
+            logger.error("Quiz generation produced no valid questions")
+            return jsonify({"error": "Quiz generation failed (empty quiz)"}), 500
+
+        final_quiz = {"questions": safe_questions}
+
+        # Cache + log
+        cache_set(cache_key, final_quiz, 10)
         log_quiz_activity(session["user_email"], "generate_quiz", filename)
-        return jsonify(quiz)
+
+        return jsonify(final_quiz)
+
+    except Exception as e:
+        logger.error(f"/generate_quiz error: {e}")
+        return jsonify({"error": "Quiz generation failed"}), 500
+
+        # Normalize each question
+        safe_questions = []
+        for q in quiz["questions"]:
+            question = q.get("question", "").strip()
+            options = q.get("options", []) or []
+            answer = q.get("answer", "").strip()
+
+            # Ensure at least 4 options (pad with N/A if missing)
+            if isinstance(options, dict):
+                keys = ["A", "B", "C", "D"]
+                options = [options.get(k) for k in keys if options.get(k)]
+            while len(options) < 4:
+                options.append("N/A")
+            options = options[:4]
+
+            if question and options:
+                safe_questions.append({
+                    "question": question,
+                    "options": options,
+                    "answer": answer if answer in options else ""
+                })
+
+        if not safe_questions:
+            logger.error("Quiz generation produced no valid questions")
+            return jsonify({"error": "Quiz generation failed (empty quiz)"}), 500
+
+        final_quiz = {"questions": safe_questions}
+
+        # Cache + log
+        cache_set(cache_key, final_quiz, 10)
+        log_quiz_activity(session["user_email"], "generate_quiz", filename)
+
+        return jsonify(final_quiz)
 
     except Exception as e:
         logger.error(f"/generate_quiz error: {e}")
@@ -540,6 +617,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
