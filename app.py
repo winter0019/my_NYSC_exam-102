@@ -17,7 +17,7 @@ import PyPDF2
 import requests
 import pytesseract
 from PIL import Image
-import fitz  # PyMuPDF for better PDF text extraction
+import fitz # PyMuPDF for better PDF text extraction
 
 
 # Try to import optional dependencies
@@ -112,58 +112,20 @@ rooms = {}
 
 # --- Firebase Setup ---
 db = None
-firebase_app = None
-
 if FIREBASE_AVAILABLE:
     try:
-        # Try multiple methods to initialize Firebase
-        initialization_methods = []
-        
-        # Method 1: Environment variable
-        service_account_json = os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON')
-        if service_account_json:
-            try:
-                cred_dict = json.loads(service_account_json)
-                cred = credentials.Certificate(cred_dict)
-                firebase_app = firebase_admin.initialize_app(cred)
-                db = firestore.client()
-                initialization_methods.append("environment_variable")
-                logger.info("Firebase initialized from environment variable")
-            except Exception as e:
-                logger.warning(f"Failed to initialize from environment variable: {e}")
-        
-        # Method 2: File path (if method 1 failed or not available)
-        if not firebase_app and os.path.exists("serviceAccountKey.json"):
-            try:
-                cred = credentials.Certificate("serviceAccountKey.json")
-                firebase_app = firebase_admin.initialize_app(cred)
-                db = firestore.client()
-                initialization_methods.append("service_account_file")
-                logger.info("Firebase initialized from service account file")
-            except Exception as e:
-                logger.warning(f"Failed to initialize from service account file: {e}")
-        
-        # Method 3: Application default credentials (for Google Cloud environments)
-        if not firebase_app:
-            try:
-                # This will work on Google Cloud Platform if credentials are properly set
-                firebase_app = firebase_admin.initialize_app()
-                db = firestore.client()
-                initialization_methods.append("application_default")
-                logger.info("Firebase initialized using application default credentials")
-            except Exception as e:
-                logger.warning(f"Failed to initialize using application default credentials: {e}")
-        
-        if not firebase_app:
-            logger.warning("All Firebase initialization methods failed. Firebase features disabled.")
+        if os.path.exists("serviceAccountKey.json"):
+            cred = credentials.Certificate("serviceAccountKey.json")
+            firebase_admin.initialize_app(cred)
+            db = firestore.client()
+            logger.info("Firebase initialized successfully")
         else:
-            logger.info(f"Firebase initialized successfully using methods: {initialization_methods}")
-            
+            logger.warning("Firebase credentials file not found. Firebase features disabled.")
     except Exception as e:
-        logger.error(f"Firebase initialization failed completely: {e}")
+        logger.warning(f"Firebase init failed: {e}")
         db = None
 else:
-    logger.warning("Firebase Admin SDK not available. Some features will be disabled.")
+    logger.warning("Firebase not available. Some features will be disabled.")
 
 FIREBASE_API_KEY = os.getenv("FIREBASE_API_KEY")
 GNEWS_API_KEY = os.getenv("GNEWS_API_KEY")
@@ -243,11 +205,13 @@ def extract_text_from_pdf(file_stream) -> str:
         logger.error(f"Error extracting PDF: {e}")
         return ""
     
-def extract_text_from_image(file_stream):
+def extract_text_from_image(file_path):
     """Extract text from image using Tesseract OCR"""
+    import pytesseract
+    from PIL import Image
+
     try:
-        image = Image.open(file_stream)
-        text = pytesseract.image_to_string(image)
+        text = pytesseract.image_to_string(Image.open(file_path))
         return text
     except Exception as e:
         logger.error(f"Error extracting text from image: {e}")
@@ -434,8 +398,8 @@ def create_discussion_rooms(discussions, creator_email=None):
             try:
                 db.collection('discussion_rooms').document(room_id).set({
                     **room_data,
-                    "created_at": firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now(),
-                    "last_activity": firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now()
+                    "created_at": firestore.SERVER_TIMESTAMP,
+                    "last_activity": firestore.SERVER_TIMESTAMP
                 })
             except Exception as e:
                 logger.warning(f"Failed to persist discussion room to Firestore: {e}")
@@ -447,7 +411,7 @@ def create_discussion_rooms(discussions, creator_email=None):
 # --- Middleware: check active session ---
 @app.before_request
 def enforce_single_session():
-    if request.endpoint in ['login', 'signup', 'static', 'login_page', 'favicon', 'check_session', 'logout', 'diagnostics']:
+    if request.endpoint in ['login', 'signup', 'static', 'login_page', 'favicon', 'check_session', 'logout']:
         return
         
     if "user_email" in session:
@@ -489,32 +453,6 @@ def format_datetime(value):
             pass
     
     return str(value)
-
-def check_firebase_credentials():
-    """Verify Firebase credentials are valid"""
-    try:
-        if not FIREBASE_AVAILABLE:
-            return "Firebase Admin SDK not installed"
-            
-        service_account_path = "serviceAccountKey.json"
-        if os.path.exists(service_account_path):
-            # Try to validate the JSON file
-            with open(service_account_path, 'r') as f:
-                cred_data = json.load(f)
-                required_fields = ['type', 'project_id', 'private_key_id', 'private_key', 'client_email']
-                for field in required_fields:
-                    if field not in cred_data:
-                        return f"Missing required field in service account: {field}"
-            return "Service account file appears valid"
-        elif os.getenv('FIREBASE_SERVICE_ACCOUNT_JSON'):
-            return "Using Firebase credentials from environment variable"
-        else:
-            return "No Firebase credentials found"
-            
-    except json.JSONDecodeError:
-        return "Service account file contains invalid JSON"
-    except Exception as e:
-        return f"Error checking service account: {str(e)}"
 
 # --- Routes ---
 @app.route('/favicon.ico')
@@ -675,6 +613,35 @@ def dashboard():
                          email=email, 
                          history=formatted_history,
                          grade=session.get("user_grade", "GL10"))
+
+    # Check if this user is admin
+    admin_email = "dangalan20@gmail.com"
+    is_admin = email == admin_email
+
+    if is_admin:
+        # Admin sees overview of all users
+        users_data = {}
+        try:
+            if db:
+                users_ref = db.collection("users").stream()
+                for user_doc in users_ref:
+                    user_email = user_doc.id
+                    history_ref = db.collection("users").document(user_email).collection("history")
+                    history = [doc.to_dict() for doc in history_ref.stream()]
+                    users_data[user_email] = history
+        except Exception as e:
+            logger.error(f"Error fetching users overview: {e}")
+            users_data = {}
+        return render_template("admin_dashboard.html", users_data=users_data)
+    else:
+        # Normal user sees personal dashboard
+        history = []
+        try:
+            history = fetch_user_history(email, limit=10)
+        except Exception as e:
+            logger.error(f"Error fetching history for {email}: {e}")
+
+        return render_template("dashboard.html", email=email, history=history)
 
 # --- Free Trial Quiz Route ---
 @app.route("/free_trial_quiz")
@@ -930,7 +897,8 @@ def check_auth():
 def get_messages(room_id):
     try:
         messages = []
-        
+        room_found = False
+
         # Try to get messages from Firestore first
         if db:
             room_ref = db.collection('discussion_rooms').document(room_id)
@@ -938,308 +906,70 @@ def get_messages(room_id):
             if room_doc.exists:
                 room_data = room_doc.to_dict()
                 messages = room_data.get('messages', [])
-        
-        # Fallback to in-memory storage
-        if not messages:
-            room = rooms.get(room_id)
-            if room:
-                messages = room.get('messages', [])
-            else:
-                return jsonify({"error": "Room not found"}), 404
-        
-        # Get unique participants
-        participants = set(msg.get('user', 'Anonymous') for msg in messages)
-        
-        # Get final answer if exists
-        final_answer = None
-        if db:
-            room_doc = db.collection('discussion_rooms').document(room_id).get()
-            if room_doc.exists:
-                final_answer = room_doc.to_dict().get('final_answer')
-        
-        return jsonify({
-            "messages": messages,
-            "final_answer": final_answer,
-            "participants": len(participants)
-        })
-    
-    except Exception as e:
-        logger.error(f"Error fetching messages for room {room_id}: {e}")
-        return jsonify({"error": "Failed to fetch messages"}), 500
+                room_found = True
 
-@app.route('/message/<room_id>', methods=['POST'])
+        # Fallback to in-memory storage if not found in Firestore
+        if not room_found:
+            room_data = rooms.get(room_id)
+            if room_data:
+                messages = room_data.get('messages', [])
+                room_found = True
+        
+        # Handle room not found
+        if not room_found:
+            return jsonify({"error": "Discussion room not found"}), 404
+            
+        # Convert Firestore Timestamps to strings for JSON serialization
+        for msg in messages:
+            if isinstance(msg.get('timestamp'), datetime):
+                msg['timestamp'] = msg['timestamp'].isoformat()
+            elif hasattr(msg.get('timestamp'), 'isoformat'):
+                msg['timestamp'] = msg['timestamp'].isoformat()
+
+        return jsonify({"messages": messages}), 200
+
+    except Exception as e:
+        logger.error(f"Error fetching messages for room {room_id}: {e}", exc_info=True)
+        return jsonify({"error": "Failed to retrieve messages"}), 500
+
+@app.route('/messages/<room_id>', methods=['POST'])
 @login_required
+@limiter.limit("60 per minute")
 def post_message(room_id):
     try:
         data = request.get_json()
-        user = data.get('user', session.get("user_email", "Anonymous"))
-        text = data.get('text', '').strip()
+        message_text = data.get('message')
+        if not message_text:
+            return jsonify({"error": "Message content is required"}), 400
+
+        user_email = session["user_email"]
+        timestamp = datetime.now()
         
-        if not text:
-            return jsonify({"error": "Message text is required"}), 400
-        
-        message = {
-            "user": user,
-            "text": text,
-            "timestamp": datetime.now().isoformat(),
-            "user_email": session.get("user_email", "")  # Store actual user email for tracking
+        new_message = {
+            "user": user_email,
+            "text": message_text,
+            "timestamp": timestamp,
         }
+
+        # Update in-memory storage
+        if room_id in rooms:
+            rooms[room_id]['messages'].append(new_message)
+            rooms[room_id]['last_activity'] = timestamp
         
-        # Try to save to Firestore first
+        # Update Firestore
         if db:
             try:
                 room_ref = db.collection('discussion_rooms').document(room_id)
-                
-                # Update the room with new message and timestamp
+                # Use array_union to atomically add the new message
                 room_ref.update({
-                    'messages': firestore.ArrayUnion([message]),
-                    'last_activity': firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now(),
-                    'participants': firestore.ArrayUnion([session.get("user_email", "Anonymous")])
+                    "messages": firestore.ArrayUnion([new_message]),
+                    "last_activity": firestore.SERVER_TIMESTAMP
                 })
-            except Exception as firestore_error:
-                logger.warning(f"Firestore update failed, using in-memory: {firestore_error}")
-                # Fallback to in-memory if Firestore fails
-                room = rooms.get(room_id)
-                if not room:
-                    return jsonify({"error": "Room not found"}), 404
-                room['messages'].append(message)
-                room['last_activity'] = datetime.now()
-        else:
-            # Use in-memory storage only
-            room = rooms.get(room_id)
-            if not room:
-                return jsonify({"error": "Room not found"}), 404
-            room['messages'].append(message)
-            room['last_activity'] = datetime.now()
+            except Exception as e:
+                logger.warning(f"Failed to save message to Firestore: {e}")
         
-        # Log the message activity
-        log_quiz_activity(session["user_email"], "discussion", f"Room: {room_id}")
-        
-        return jsonify({"ok": True, "message": message})
-    
+        return jsonify({"status": "success", "message": "Message posted"}), 201
+
     except Exception as e:
-        logger.error(f"Error posting message to room {room_id}: {e}")
+        logger.error(f"Error posting message to room {room_id}: {e}", exc_info=True)
         return jsonify({"error": "Failed to post message"}), 500
-
-@app.route('/summarize/<room_id>', methods=['POST'])
-@login_required
-@limiter.limit("3 per hour")
-def summarize_room(room_id):
-    try:
-        # Get messages from Firestore or memory
-        messages = []
-        if db:
-            room_doc = db.collection('discussion_rooms').document(room_id).get()
-            if room_doc.exists:
-                messages = room_doc.to_dict().get('messages', [])
-        
-        if not messages:
-            room = rooms.get(room_id)
-            if room:
-                messages = room.get('messages', [])
-            else:
-                return jsonify({"error": "Room not found"}), 404
-        
-        # Check if there are enough messages to summarize
-        if len(messages) < 3:
-            return jsonify({"error": "Not enough messages to summarize"}), 400
-        
-        try:
-            # Build a prompt from the discussion messages
-            discussion_text = "\n".join([f"{m.get('user', 'Anonymous')}: {m.get('text', '')}" for m in messages])
-            prompt = f"""
-            Summarize the key points from this discussion about '{room['question']}'.
-            Provide a comprehensive answer that captures the collective wisdom of the participants.
-            
-            Discussion:
-            {discussion_text}
-            
-            Provide your summary in a clear, structured format.
-            """
-            
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content(prompt)
-            summary = response.text
-            
-            # Save summary to Firestore or memory
-            if db:
-                db.collection('discussion_rooms').document(room_id).update({
-                    'final_answer': summary,
-                    'last_activity': firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now()
-                })
-            else:
-                room = rooms.get(room_id)
-                if room:
-                    room['final_answer'] = summary
-                    room['last_activity'] = datetime.now()
-            
-            # Log the summarization activity
-            log_quiz_activity(session["user_email"], "summary", f"Room: {room_id}")
-            
-            return jsonify({"summary": summary})
-        
-        except exceptions.ResourceExhausted as e:
-            logger.error(f"Gemini API quota exceeded: {e}")
-            return jsonify({
-                "error": "Summary generation limit reached. Please try again later."
-            }), 429
-        
-        except Exception as e:
-            logger.error(f"Error generating summary: {e}")
-            return jsonify({"error": "Failed to generate summary"}), 500
-    
-    except Exception as e:
-        logger.error(f"Error in summarize endpoint for room {room_id}: {e}")
-        return jsonify({"error": "Internal server error"}), 500
-    
-# --- Per-user quizzes storage (in-memory fallback) ---
-user_quizzes = {}  # { email: [ {id, subject, quiz, created_at, source} ] }
-
-def save_user_quiz(user_email, quiz_data, subject="unspecified", source="preset"):
-    """
-    Store generated quiz data under the user's history.
-    Uses Firestore if available, otherwise stores in-memory.
-    Returns stored record (including id and timestamp).
-    """
-    record = {
-        "id": str(uuid.uuid4()),
-        "subject": subject,
-        "quiz": quiz_data.get("quiz", []),
-        "discussions": quiz_data.get("discussions", []),
-        "source": source,
-        "created_at": datetime.now()
-    }
-
-    # Save to Firestore if available
-    try:
-        if db:
-            db.collection("user_quizzes").document(record["id"]).set({
-                **record,
-                "user_email": user_email,
-                "created_at": firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now()
-            })
-        else:
-            # In-memory fallback
-            user_quizzes.setdefault(user_email, []).insert(0, record)
-    except Exception as e:
-        logger.warning(f"Failed to save user quiz: {e}")
-        # Always keep fallback
-        user_quizzes.setdefault(user_email, []).insert(0, record)
-
-    return record
-
-def fetch_user_history(user_email, limit=10):
-    """Return latest quiz records for the given user."""
-    results = []
-    if db:
-        try:
-            docs = db.collection('user_quizzes').where('user_email', '==', user_email).order_by('created_at', direction=firestore.Query.DESCENDING).limit(limit).stream()
-            for d in docs:
-                data = d.to_dict()
-                # normalize timestamp for display
-                ts = data.get("created_at")
-                data["created_at"] = ts if not hasattr(ts, "isoformat") else ts.isoformat()
-                results.append(data)
-            return results
-        except Exception as e:
-            logger.warning(f"Failed fetch_user_history from Firestore: {e}")
-    # fallback to in-memory store
-    for r in user_quizzes.get(user_email, [])[:limit]:
-        copy = dict(r)
-        copy["created_at"] = copy["created_at"].isoformat() if isinstance(copy["created_at"], datetime) else copy["created_at"]
-        results.append(copy)
-    return results
-
-# --- Create public discussion room (UI + endpoint used by dashboard) ---
-@app.route("/create_room", methods=["GET", "POST"])
-@login_required
-def create_room():
-    if request.method == "GET":
-        return render_template("create_room.html")
-    
-    # POST -> create room
-    q = (request.form.get("question") or request.json and request.json.get("question") or "").strip()
-    if not q:
-        return jsonify({"error": "Question text is required"}), 400
-
-    room_id = str(uuid.uuid4())
-    room_doc = {
-        "question": q,
-        "messages": [],
-        "final_answer": None,
-        "created_by": session.get("user_email"),
-        "created_at": datetime.now(),
-        "last_activity": datetime.now(),
-        "public": True
-    }
-    rooms[room_id] = room_doc
-
-    # Persist to Firestore if possible
-    if db:
-        try:
-            db.collection("discussion_rooms").document(room_id).set({
-                **room_doc,
-                "created_at": firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now(),
-                "last_activity": firestore.SERVER_TIMESTAMP if hasattr(firestore, 'SERVER_TIMESTAMP') else datetime.now(),
-            })
-        except Exception as e:
-            logger.warning(f"Failed to persist discussion room: {e}")
-
-    return redirect(url_for("discussion_room", room_id=room_id))
-
-# --- public discussion listing (so dashboard can link to '/discussion') ---
-@app.route("/discussion", methods=["GET"])
-@login_required
-def discussion_index():
-    """
-    Show list of public discussion rooms. Dashboard will link here.
-    """
-    public_rooms = []
-    # prefer Firestore if available
-    if db:
-        try:
-            docs = db.collection("discussion_rooms").where("public", "==", True).order_by("last_activity", direction=firestore.Query.DESCENDING).stream()
-            for d in docs:
-                r = d.to_dict()
-                r["id"] = d.id
-                public_rooms.append(r)
-        except Exception as e:
-            logger.warning(f"Failed to fetch public rooms from Firestore: {e}")
-
-    # include in-memory public rooms
-    for rid, r in rooms.items():
-        if r.get("public", True):
-            if not any(pr.get("id") == rid for pr in public_rooms):
-                copy = dict(r)
-                copy["id"] = rid
-                public_rooms.append(copy)
-
-    # sort by last_activity (fallback)
-    public_rooms.sort(key=lambda x: x.get("last_activity", datetime.min), reverse=True)
-    return render_template("discussion_index.html", rooms=public_rooms)
-
-@app.route("/check_session", methods=["GET"])
-@login_required
-def check_session():
-    return jsonify({"valid": True})
-
-@app.route("/diagnostics")
-def diagnostics():
-    """Endpoint to check system status"""
-    firebase_status = check_firebase_credentials()
-    return jsonify({
-        "firebase_status": firebase_status,
-        "firebase_available": FIREBASE_AVAILABLE,
-        "service_account_exists": os.path.exists("serviceAccountKey.json"),
-        "env_vars_available": "FIREBASE_API_KEY" in os.environ,
-        "firebase_initialized": db is not None
-    })
-
-if __name__ == "__main__":
-    cleanup_expired_rooms()
-    
-    debug_mode = os.getenv("FLASK_DEBUG", "False").lower() == "true"
-    host = os.getenv("FLASK_HOST", "0.0.0.0")
-    port = int(os.getenv("FLASK_PORT", "5000"))
-    
-    app.run(debug=debug_mode, host=host, port=port)
