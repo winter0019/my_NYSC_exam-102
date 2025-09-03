@@ -59,18 +59,11 @@
         </div>
     </div>
 
-    <!-- Firebase SDKs -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    <!-- Firebase SDKs (non-modular, for compatibility) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script>
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-        let db, auth;
         const errorMessageDiv = document.getElementById('error-message');
         const errorSpan = errorMessageDiv.querySelector('span');
 
@@ -85,9 +78,7 @@
 
         if (firebaseConfig) {
             try {
-                const app = initializeApp(firebaseConfig);
-                auth = getAuth(app);
-                db = getFirestore(app);
+                firebase.initializeApp(firebaseConfig);
             } catch (error) {
                 console.error("Firebase initialization failed:", error);
                 showError("Firebase initialization failed. Please try again later.");
@@ -96,37 +87,6 @@
             console.error("Firebase config is missing.");
             showError("Application configuration error. Please contact support.");
         }
-
-        // Handle initial authentication state
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                console.log("User is authenticated:", user.uid);
-                // Save user info to Firestore if this is a new sign-in
-                const userRef = doc(db, `/artifacts/${appId}/users/${user.uid}/user_data/profile`);
-                await setDoc(userRef, {
-                    email: user.email,
-                    lastLogin: new Date().toISOString()
-                }, { merge: true });
-                window.location.href = '/dashboard';
-            } else {
-                console.log("User is not authenticated.");
-                // Use a custom token if available, otherwise sign in anonymously
-                if (initialAuthToken) {
-                    try {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                        console.log("Signed in with custom token.");
-                    } catch (error) {
-                        console.error("Error signing in with custom token:", error);
-                        // Fallback to anonymous sign-in if custom token fails
-                        await signInAnonymously(auth);
-                        console.log("Signed in anonymously.");
-                    }
-                } else {
-                    await signInAnonymously(auth);
-                    console.log("Signed in anonymously.");
-                }
-            }
-        });
 
         // Handle form submission
         document.getElementById('login-form').addEventListener('submit', async (e) => {
@@ -142,8 +102,9 @@
             }
 
             try {
-                await signInWithEmailAndPassword(auth, email, password);
-                // Redirection will be handled by onAuthStateChanged listener
+                const auth = firebase.auth();
+                await auth.signInWithEmailAndPassword(email, password);
+                window.location.href = '/dashboard';
             } catch (error) {
                 console.error("Login failed:", error);
                 switch (error.code) {
