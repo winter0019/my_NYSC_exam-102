@@ -6,62 +6,81 @@
     <title>Admin Dashboard - NYSC Exam Prep</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- Load Firebase SDKs -->
+    <script>
+      // The `__firebase_config` and `__initial_auth_token` are automatically provided by the environment.
+      // Use a valid default configuration for testing if the environment variables are not set.
+      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+          apiKey: "your-api-key", // REPLACE WITH A REAL API KEY FOR TESTING
+          authDomain: "your-project-id.firebaseapp.com",
+          projectId: "your-project-id",
+          storageBucket: "your-project-id.appspot.com",
+          messagingSenderId: "your-sender-id",
+          appId: "your-app-id",
+      };
+      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    </script>
     <script type="module">
       import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
       import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
       import { getFirestore, collection, onSnapshot, doc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
       
-      // Set debug logging for Firestore
+      // Set debug logging for Firestore to help with troubleshooting
       setLogLevel('debug');
 
-      // Global variables provided by the environment
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-
-      // Initialize Firebase
       let app = null;
       let db = null;
       let auth = null;
-      let currentUserId = null;
       let usersData = {};
       
-      try {
-          app = initializeApp(firebaseConfig);
-          db = getFirestore(app);
-          auth = getAuth(app);
-          console.log("Firebase initialized successfully.");
-      } catch (e) {
-          console.error("Failed to initialize Firebase:", e);
-      }
+      const statusBox = document.getElementById('firebase-status');
 
-      // Handle user authentication
-      onAuthStateChanged(auth, async (user) => {
-          if (user) {
-              currentUserId = user.uid;
-              console.log("User signed in with UID:", currentUserId);
-              document.getElementById('current-user-id').textContent = currentUserId;
-              attachFirestoreListener();
-          } else {
-              console.log("No user is signed in. Attempting to authenticate...");
-              try {
-                  if (initialAuthToken) {
-                      await signInWithCustomToken(auth, initialAuthToken);
-                      console.log("Signed in with custom token.");
+      // Check if the provided Firebase config has a valid API key
+      if (!firebaseConfig.apiKey || firebaseConfig.apiKey.length < 5) {
+          statusBox.textContent = 'Status: Error (Invalid API Key)';
+          statusBox.classList.add('bg-red-100', 'text-red-700');
+          console.error("Firebase configuration is invalid. Please provide a valid apiKey.");
+      } else {
+          try {
+              app = initializeApp(firebaseConfig);
+              auth = getAuth(app);
+              db = getFirestore(app);
+              statusBox.textContent = 'Status: Connecting...';
+              
+              // Handle user authentication
+              onAuthStateChanged(auth, async (user) => {
+                  if (user) {
+                      statusBox.textContent = `Status: Connected (User ID: ${user.uid})`;
+                      statusBox.classList.remove('bg-gray-100', 'text-gray-600');
+                      statusBox.classList.add('bg-green-100', 'text-green-700');
+                      document.getElementById('current-user-id').textContent = user.uid;
+                      attachFirestoreListener();
                   } else {
-                      await signInAnonymously(auth);
-                      console.log("Signed in anonymously.");
+                      console.log("No user is signed in. Attempting to authenticate...");
+                      try {
+                          if (initialAuthToken) {
+                              await signInWithCustomToken(auth, initialAuthToken);
+                              console.log("Signed in with custom token.");
+                          } else {
+                              await signInAnonymously(auth);
+                              console.log("Signed in anonymously.");
+                          }
+                      } catch (error) {
+                          console.error("Authentication failed:", error);
+                          statusBox.textContent = 'Status: Auth Error';
+                          statusBox.classList.add('bg-red-100', 'text-red-700');
+                      }
                   }
-              } catch (error) {
-                  console.error("Authentication failed:", error);
-              }
+              });
+          } catch (e) {
+              statusBox.textContent = 'Status: Init Error';
+              statusBox.classList.add('bg-red-100', 'text-red-700');
+              console.error("Firebase initialization failed:", e);
           }
-      });
+      }
       
       // Attach real-time Firestore listener
       function attachFirestoreListener() {
-          const usersCollectionPath = `/artifacts/${appId}/public/data/users`;
+          const usersCollectionPath = `/artifacts/${firebaseConfig.projectId}/public/data/users`;
           const q = collection(db, usersCollectionPath);
           onSnapshot(q, (querySnapshot) => {
               console.log("Received new data from Firestore.");
@@ -224,7 +243,7 @@
       function handleLogout() {
           signOut(auth).then(() => {
               console.log("User signed out successfully.");
-              // Can redirect or change UI state here
+              showModal("Logged Out", "You have been successfully logged out.");
           }).catch((error) => {
               console.error("Error signing out:", error);
           });
@@ -281,6 +300,9 @@
         
         <!-- Main Content -->
         <main class="p-8 space-y-8">
+            <div id="firebase-status" class="p-4 rounded-xl text-sm font-semibold bg-gray-100 text-gray-600 transition-colors duration-300">
+              Status: Initializing...
+            </div>
             <div class="p-4 bg-gray-50 rounded-xl text-sm text-gray-600">
               <span class="font-semibold">Current User ID:</span> <span id="current-user-id" class="break-words">...</span>
             </div>
