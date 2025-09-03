@@ -9,3 +9,4 @@ pytesseract
 PyMuPDF
 Flask-Limiter
 firebase_admin
+loguru
