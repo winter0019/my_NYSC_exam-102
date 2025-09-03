@@ -176,23 +176,46 @@ def _extract_first_json_block(text: str):
 
 def quiz_to_uniform_schema(quiz_obj):
     """
-    Normalize to: { "questions": [ { "question": str, "options": [str, str, str, str], "answer": str } ] }
+    Normalize quiz data into a safe schema:
+    { "questions": [ { "question": str, "options": [str, str, str, str], "answer": str } ] }
     """
     out = {"questions": []}
     items = quiz_obj.get("questions") or quiz_obj.get("quiz") or []
+
     for q in items:
-        question = q.get("question") or q.get("q") or ""
+        question = str(q.get("question") or q.get("q") or "").strip()
         options = q.get("options") or q.get("choices") or []
-        answer = q.get("answer") or q.get("correct") or q.get("correct_answer") or ""
+        answer = str(q.get("answer") or q.get("correct") or q.get("correct_answer") or "").strip()
+
+        # Convert dict → list in A–D order
         if isinstance(options, dict):
-            # convert {"A": "...", "B": "..."} to list in A-D order if possible
             keys = ["A", "B", "C", "D"]
-            options = [options.get(k) for k in keys if options.get(k)]
-        # filter falsy
-        options = [o for o in options if o]
-        if question and options:
-            out["questions"].append({"question": question, "options": options, "answer": answer})
+            options = [options.get(k, "").strip() for k in keys if options.get(k)]
+
+        # Clean list
+        if isinstance(options, list):
+            options = [str(o).strip() for o in options if o]
+        else:
+            options = []
+
+        # Guarantee exactly 4 options (pad with N/A or trim)
+        while len(options) < 4:
+            options.append("N/A")
+        options = options[:4]
+
+        # Validate answer: must be inside options
+        if answer not in options:
+            answer = ""
+
+        if question:
+            out["questions"].append({
+                "question": question,
+                "options": options,
+                "answer": answer
+            })
+
     return out
+
 
 def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
     """
@@ -236,23 +259,22 @@ Grade: {grade}
     )
 
     raw = (response.text or "").strip()
-    # Try direct JSON parse
+
+    # Try strict JSON parse
     try:
-        data = json.loads(raw)
-        return quiz_to_uniform_schema(data)
+        return quiz_to_uniform_schema(json.loads(raw))
     except Exception:
         pass
 
-    # Try to pull a JSON block from markdown
+    # Try extracting a JSON block
     jb = _extract_first_json_block(raw)
     if jb:
         try:
-            data = json.loads(jb)
-            return quiz_to_uniform_schema(data)
+            return quiz_to_uniform_schema(json.loads(jb))
         except Exception:
             pass
 
-    # Last resort: naive parser for A-D blocks (kept minimal)
+    # Last resort: naive parse (Q + A–D lines)
     questions = []
     blocks = re.split(r"\n\s*\n", raw)
     for b in blocks:
@@ -263,8 +285,10 @@ Grade: {grade}
             for ln in lines[1:5]:
                 m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
                 opts.append(m.group(1) if m else ln)
-            # Best effort; no guaranteed answer
-            questions.append({"question": q, "options": opts, "answer": ""})
+            while len(opts) < 4:
+                opts.append("N/A")
+            questions.append({"question": q, "options": opts[:4], "answer": ""})
+
     return {"questions": questions[:5]}
 
 # --- Routes ---
@@ -617,6 +641,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
