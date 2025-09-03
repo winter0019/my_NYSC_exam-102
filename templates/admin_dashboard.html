@@ -7,15 +7,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script>
-      // The `__firebase_config` and `__initial_auth_token` are automatically provided by the environment.
-      // Use a valid default configuration for testing if the environment variables are not set.
+      // The `__app_id`, `__firebase_config` and `__initial_auth_token` are automatically provided by the environment.
+      // Use valid defaults for testing if the environment variables are not set.
+      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
       const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-          apiKey: "your-api-key", // REPLACE WITH A REAL API KEY FOR TESTING
-          authDomain: "your-project-id.firebaseapp.com",
-          projectId: "your-project-id",
-          storageBucket: "your-project-id.appspot.com",
-          messagingSenderId: "your-sender-id",
-          appId: "your-app-id",
+          apiKey: "AIzaSyCyU4fCiZEo_jGCf3Am7_7CGwH43EjqQD4",
+          authDomain: "exam-prep-102.firebaseapp.com",
+          projectId: "exam-prep-102",
+          storageBucket: "exam-prep-102.firebasestorage.app",
+          messagingSenderId: "1048082051309",
+          appId: "1:1048082051309:web:60c9ef8aaa0e9f638d5ce4",
+          measurementId: "G-0ZRVZBM37H"
       };
       const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
     </script>
@@ -33,6 +35,7 @@
       let usersData = {};
       
       const statusBox = document.getElementById('firebase-status');
+      const currentUserSpan = document.getElementById('current-user-id');
 
       // Check if the provided Firebase config has a valid API key
       if (!firebaseConfig.apiKey || firebaseConfig.apiKey.length < 5) {
@@ -46,13 +49,14 @@
               db = getFirestore(app);
               statusBox.textContent = 'Status: Connecting...';
               
-              // Handle user authentication
+              // Handle user authentication and data loading
               onAuthStateChanged(auth, async (user) => {
                   if (user) {
-                      statusBox.textContent = `Status: Connected (User ID: ${user.uid})`;
+                      statusBox.textContent = `Status: Connected`;
                       statusBox.classList.remove('bg-gray-100', 'text-gray-600');
                       statusBox.classList.add('bg-green-100', 'text-green-700');
-                      document.getElementById('current-user-id').textContent = user.uid;
+                      currentUserSpan.textContent = user.uid;
+                      // Attach the listener to a secure, private collection
                       attachFirestoreListener();
                   } else {
                       console.log("No user is signed in. Attempting to authenticate...");
@@ -78,9 +82,11 @@
           }
       }
       
-      // Attach real-time Firestore listener
+      // Attach real-time Firestore listener for the admin's view of all users
       function attachFirestoreListener() {
-          const usersCollectionPath = `/artifacts/${firebaseConfig.projectId}/public/data/users`;
+          // IMPORTANT: This path requires security rules to ensure only admins can read it.
+          // Example Rule: allow read: if request.auth.token.admin == true;
+          const usersCollectionPath = `/artifacts/${appId}/admin/users`;
           const q = collection(db, usersCollectionPath);
           onSnapshot(q, (querySnapshot) => {
               console.log("Received new data from Firestore.");
