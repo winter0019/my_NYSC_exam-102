@@ -2,35 +2,152 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Exam Quiz</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NYSC Exam Prep - Quiz</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
+  <script src="/static/js/firebase.js"></script>
 </head>
-<body class="bg-gray-100 flex items-center justify-center min-h-screen">
-  <div class="w-full max-w-xl bg-white rounded-2xl shadow-lg p-8 font-sans">
-    
-    <!-- Question card -->
-    <div id="quiz-container">
-      <h2 id="question-title" class="text-xl font-bold mb-4">Question</h2>
-      <p id="question-text" class="mb-6"></p>
-      <div id="options" class="space-y-3"></div>
-      <p id="feedback" class="mt-4 font-semibold"></p>
+<body class="bg-gray-100 min-h-screen flex flex-col">
+  <!-- Header -->
+  <header class="bg-blue-600 text-white p-4 flex justify-between items-center">
+    <h1 class="text-xl font-bold">📘 NYSC Exam Prep</h1>
+    <button id="logout-btn" class="bg-red-500 px-3 py-1 rounded">Logout</button>
+  </header>
 
-      <!-- Navigation -->
-      <div class="flex justify-between mt-6">
-        <button onclick="restartQuiz()" class="px-4 py-2 rounded-lg bg-gray-200 hover:bg-gray-300">Back to Start</button>
-        <button id="submit-btn" onclick="submitAnswer()" class="px-6 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700">Submit Answer</button>
-        <button id="next-btn" onclick="nextQuestion()" class="px-6 py-2 rounded-lg bg-gray-300 text-gray-700 hidden">Next Question</button>
-      </div>
-    </div>
+  <!-- Main content -->
+  <main class="flex-1 p-6 space-y-6">
+    <!-- Upload form -->
+    <section class="bg-white rounded-lg shadow p-6">
+      <h2 class="text-lg font-semibold mb-4">Upload Document</h2>
+      <form id="upload-form" enctype="multipart/form-data" class="space-y-4">
+        <input type="file" id="document" name="document" accept=".pdf,.docx,image/*" class="block w-full border rounded p-2" required>
+        
+        <div class="flex gap-4">
+          <select id="grade" name="grade" class="border rounded p-2 flex-1">
+            <option value="GL8">GL8</option>
+            <option value="GL9">GL9</option>
+            <option value="GL10">GL10</option>
+            <option value="GL12">GL12</option>
+            <option value="GL13">GL13</option>
+            <option value="GL14">GL14</option>
+            <option value="GL15">GL15</option>
+            <option value="GL16">GL16</option>
+          </select>
 
-    <!-- Final Score -->
-    <div id="result-container" class="hidden text-center">
-      <h2 class="text-2xl font-bold mb-4">Quiz Finished!</h2>
-      <p id="result-text" class="text-lg mb-6"></p>
-      <button onclick="restartQuiz()" class="px-6 py-2 rounded-lg bg-green-600 text-white hover:bg-green-700">Try Again</button>
-    </div>
+          <select id="subject" name="subject" class="border rounded p-2 flex-1">
+            <option value="psr">Public Service Rules</option>
+            <option value="nysc">NYSC Operations</option>
+            <option value="current_affairs">Current Affairs</option>
+          </select>
+        </div>
 
-  </div>
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Generate Quiz</button>
+      </form>
+    </section>
+
+    <!-- Quiz section -->
+    <section id="quiz-section" class="bg-white rounded-lg shadow p-6 hidden">
+      <h2 class="text-lg font-semibold mb-4">Generated Quiz</h2>
+      <div id="quiz-container" class="space-y-4"></div>
+      <button id="submit-quiz" class="bg-green-600 text-white px-4 py-2 rounded mt-4">Submit Quiz</button>
+    </section>
+
+    <!-- Discussion room -->
+    <section class="bg-white rounded-lg shadow p-6">
+      <h2 class="text-lg font-semibold mb-4">Discussion Room</h2>
+      <div id="messages" class="h-48 overflow-y-auto border rounded p-2 mb-4 bg-gray-50"></div>
+      <form id="message-form" class="flex gap-2">
+        <input type="text" id="message-input" placeholder="Type a message..." class="flex-1 border rounded p-2">
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded">Send</button>
+      </form>
+    </section>
+  </main>
+
+  <script>
+    // --- Upload Document & Generate Quiz ---
+    const uploadForm = document.getElementById('upload-form');
+    const quizSection = document.getElementById('quiz-section');
+    const quizContainer = document.getElementById('quiz-container');
+
+    uploadForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const formData = new FormData(uploadForm);
+      
+      const res = await fetch('/generate_quiz', {
+        method: 'POST',
+        body: formData
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        quizSection.classList.remove('hidden');
+        quizContainer.innerHTML = '';
+
+        data.questions.forEach((q, index) => {
+          const div = document.createElement('div');
+          div.className = 'border rounded p-3';
+          div.innerHTML = `
+            <p class="font-semibold">${index + 1}. ${q.question}</p>
+            ${q.options.map(opt => `
+              <label class="block">
+                <input type="radio" name="q${index}" value="${opt}"> ${opt}
+              </label>
+            `).join('')}
+          `;
+          quizContainer.appendChild(div);
+        });
+      } else {
+        alert('Failed to generate quiz.');
+      }
+    });
+
+    // --- Submit Quiz ---
+    document.getElementById('submit-quiz').addEventListener('click', () => {
+      alert('Quiz submitted! (Scoring logic can be added here)');
+    });
+
+    // --- Discussion Room (Firestore) ---
+    const db = firebase.firestore();
+    const messagesDiv = document.getElementById('messages');
+    const messageForm = document.getElementById('message-form');
+    const messageInput = document.getElementById('message-input');
+
+    db.collection('discussion_room')
+      .orderBy('timestamp', 'asc')
+      .onSnapshot(snapshot => {
+        messagesDiv.innerHTML = '';
+        snapshot.forEach(doc => {
+          const msg = doc.data();
+          const p = document.createElement('p');
+          p.textContent = msg.user + ": " + msg.text;
+          messagesDiv.appendChild(p);
+        });
+      });
+
+    messageForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const user = firebase.auth().currentUser;
+      if (!user) {
+        alert("You must be logged in to send messages.");
+        return;
+      }
+      await db.collection('discussion_room').add({
+        user: user.email,
+        text: messageInput.value,
+        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      messageInput.value = '';
+    });
+
+    // --- Logout ---
+    document.getElementById('logout-btn').addEventListener('click', () => {
+      firebase.auth().signOut().then(() => {
+        window.location.href = '/';
+      });
+    });
+  </script>
 </body>
-<script src="/static/main.js"></script>
 </html>
