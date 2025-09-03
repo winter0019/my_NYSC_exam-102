@@ -276,39 +276,48 @@ def home():
 def health():
     return jsonify({"ok": True, "time": datetime.utcnow().isoformat() + "Z"})
 
-@app.route("/login", methods=["GET", "POST"])
+@app.route("/login", methods=["POST"])
 def login():
-    if request.method == "POST":
-        email = request.form.get("email", "").lower()
-        password = request.form.get("password", "")
-        if email not in ALLOWED_USERS:
-            return render_template("login.html", error="Unauthorized email")
+    try:
+        data = request.get_json(force=True, silent=True) or {}
+        email = data.get("email", "").lower()
+        password = data.get("password", "")
 
-        try:
-            # Firebase Identity REST sign-in
-            api_key = os.getenv("FIREBASE_API_KEY")
-            if not api_key:
-                logger.error("FIREBASE_API_KEY not set")
-                return render_template("login.html", error="Auth service unavailable")
-            resp = requests.post(
-                "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
-                params={"key": api_key},
-                json={"email": email, "password": password, "returnSecureToken": True},
-                timeout=15,
-            )
-            if resp.status_code == 200:
-                session["user_email"] = email
-                return redirect(url_for("dashboard"))
-            return render_template("login.html", error="Invalid credentials")
-        except Exception as e:
-            logger.error(f"Login failed: {e}")
-            return render_template("login.html", error="Authentication error")
-    return render_template("login.html")
+        if not email or not password:
+            return jsonify({"ok": False, "error": "Email and password required"}), 400
 
-@app.route("/logout")
+        if email not in ALLOWED_USERS and email != "admin@nysc.gov.ng":
+            return jsonify({"ok": False, "error": "Unauthorized email"}), 403
+
+        api_key = os.getenv("FIREBASE_API_KEY")
+        if not api_key:
+            logger.error("FIREBASE_API_KEY not set")
+            return jsonify({"ok": False, "error": "Auth service unavailable"}), 500
+
+        resp = requests.post(
+            "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
+            params={"key": api_key},
+            json={"email": email, "password": password, "returnSecureToken": True},
+            timeout=15,
+        )
+
+        if resp.status_code == 200:
+            session["user_email"] = email
+            role = "admin" if email == "admin@nysc.gov.ng" else "user"
+            return jsonify({"ok": True, "role": role})
+
+        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+
+    except Exception as e:
+        logger.error(f"Login failed: {e}")
+        return jsonify({"ok": False, "error": "Authentication error"}), 500
+
+
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    return redirect(url_for("login"))
+    return jsonify({"ok": True})
+
 
 @app.route("/dashboard")
 @login_required
@@ -317,6 +326,7 @@ def dashboard():
     if user == "admin@nysc.gov.ng":
         return render_template("admin_dashboard.html", email=user)
     return render_template("dashboard.html", email=user)
+
 
 # --- Free Trial Quiz (unchanged API) ---
 @app.route("/free_trial_quiz")
@@ -540,3 +550,4 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
