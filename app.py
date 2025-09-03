@@ -2,7 +2,6 @@ import os
 import uuid
 import json
 import re
-import logging
 import hashlib
 from io import BytesIO
 from functools import wraps
@@ -17,25 +16,26 @@ import PyPDF2
 import requests
 import pytesseract
 from PIL import Image
-import fitz # PyMuPDF for better PDF text extraction
+import fitz  # PyMuPDF for better PDF text extraction
 
+# --- Loguru Setup for Structured Logging ---
+from loguru import logger
 
-# Try to import optional dependencies
-try:
-    import firebase_admin
-    from firebase_admin import credentials, firestore, auth
-    FIREBASE_AVAILABLE = True
-except ImportError:
-    FIREBASE_AVAILABLE = False
-    print("Firebase Admin SDK not available. Some features will be disabled.")
+LOG_FILE = "app.log"
+# Clear the log file on each run for a clean slate
+if os.path.exists(LOG_FILE):
+    os.remove(LOG_FILE)
 
-try:
-    from flask_limiter import Limiter
-    from flask_limiter.util import get_remote_address
-    LIMITER_AVAILABLE = True
-except ImportError:
-    LIMITER_AVAILABLE = False
-    print("Flask-Limiter not available. Rate limiting will be disabled.")
+# Remove the default logger handler
+logger.remove()
+
+# Add a new handler to write logs to 'app.log' in JSON format
+logger.add(
+    LOG_FILE,
+    format="{message}",  # Let the JSON formatter handle the structure
+    serialize=True,      # This is the key part: serialize to JSON
+    level="INFO"
+)
 
 # --- Whitelisted Users ---
 ALLOWED_USERS = {
@@ -77,20 +77,26 @@ user_sessions = {}
 load_dotenv()
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.FileHandler("app.log"),
-        logging.StreamHandler()
-    ]
-)
-logger = logging.getLogger(__name__)
-
 app = Flask(__name__)
 CORS(app)
 app.secret_key = os.getenv("SECRET_KEY") or os.urandom(24)
+
+# Try to import optional dependencies
+try:
+    import firebase_admin
+    from firebase_admin import credentials, firestore, auth
+    FIREBASE_AVAILABLE = True
+except ImportError:
+    FIREBASE_AVAILABLE = False
+    logger.warning("Firebase Admin SDK not available. Some features will be disabled.")
+
+try:
+    from flask_limiter import Limiter
+    from flask_limiter.util import get_remote_address
+    LIMITER_AVAILABLE = True
+except ImportError:
+    LIMITER_AVAILABLE = False
+    logger.warning("Flask-Limiter not available. Rate limiting will be disabled.")
 
 # Rate limiting (if available)
 if LIMITER_AVAILABLE:
@@ -122,7 +128,7 @@ if FIREBASE_AVAILABLE:
         else:
             logger.warning("Firebase credentials file not found. Firebase features disabled.")
     except Exception as e:
-        logger.warning(f"Firebase init failed: {e}")
+        logger.warning("Firebase init failed", error=str(e), exc_info=True)
         db = None
 else:
     logger.warning("Firebase not available. Some features will be disabled.")
@@ -167,7 +173,7 @@ def cleanup_expired_rooms():
     
     for room_id in expired_rooms:
         del rooms[room_id]
-        logger.info(f"Cleaned up expired room: {room_id}")
+        logger.info("Cleaned up expired room", room_id=room_id)
 
 def fetch_latest_news():
     try:
@@ -182,7 +188,7 @@ def fetch_latest_news():
         headlines = [a["title"] for a in ng_news + world_news if "title" in a]
         return "\n".join(headlines[:15]) or "No live news available."
     except Exception as e:
-        logger.error(f"News fetch error: {e}")
+        logger.error("News fetch error", error=str(e), exc_info=True)
         return "No live news available."
 
 def extract_text_from_docx(file_stream) -> str:
@@ -191,7 +197,7 @@ def extract_text_from_docx(file_stream) -> str:
         text = "\n".join([p.text for p in doc.paragraphs])
         return re.sub(r"\n{3,}", "\n\n", text).strip()
     except Exception as e:
-        logger.error(f"Error extracting DOCX: {e}")
+        logger.error("Error extracting DOCX", error=str(e), exc_info=True)
         return ""
 
 def extract_text_from_pdf(file_stream) -> str:
@@ -202,19 +208,16 @@ def extract_text_from_pdf(file_stream) -> str:
             text += page.extract_text() or ""
         return re.sub(r"\n{3,}", "\n\n", text).strip()
     except Exception as e:
-        logger.error(f"Error extracting PDF: {e}")
+        logger.error("Error extracting PDF", error=str(e), exc_info=True)
         return ""
     
 def extract_text_from_image(file_path):
     """Extract text from image using Tesseract OCR"""
-    import pytesseract
-    from PIL import Image
-
     try:
         text = pytesseract.image_to_string(Image.open(file_path))
         return text
     except Exception as e:
-        logger.error(f"Error extracting text from image: {e}")
+        logger.error("Error extracting text from image", error=str(e), exc_info=True)
         return ""
 
 def extract_text_from_pdf_fitz(file_stream) -> str:
@@ -226,7 +229,7 @@ def extract_text_from_pdf_fitz(file_stream) -> str:
             text += page.get_text("text") or ""
         return text.strip()
     except Exception as e:
-        logger.error(f"Error extracting PDF with fitz: {e}")
+        logger.error("Error extracting PDF with fitz", error=str(e), exc_info=True)
         return ""
 
 def json_hard_extract(s: str):
@@ -246,7 +249,7 @@ def json_hard_extract(s: str):
             try:
                 return json.loads(candidate)
             except:
-                logger.warning(f"Failed to parse extracted JSON: {candidate}")
+                logger.warning("Failed to parse extracted JSON", candidate=candidate)
                 raise ValueError("Could not extract valid JSON from model output.")
         raise ValueError("Could not extract valid JSON from model output.")
 
@@ -312,9 +315,9 @@ def log_quiz_activity(user_email, quiz_type, subject, score=None):
                 'score': score
             }
             db.collection('quiz_activities').add(quiz_data)
-            logger.info(f"Logged quiz activity for {user_email}")
+            logger.info("Logged quiz activity", user_email=user_email)
     except Exception as e:
-        logger.error(f"Failed to log quiz activity: {e}", exc_info=True)
+        logger.error("Failed to log quiz activity", error=str(e), exc_info=True)
 
 def generate_cache_key(document_text, num_questions, quiz_type):
     """Generate a unique cache key based on document content and quiz parameters"""
@@ -335,14 +338,14 @@ def get_cached_quiz(cache_key):
             cache_data = cached_data.to_dict()
             cache_time = cache_data['timestamp']
             if datetime.now() - cache_time < timedelta(hours=24):
-                logger.info(f"Returning cached quiz for key: {cache_key}")
+                logger.info("Returning cached quiz", cache_key=cache_key)
                 return cache_data['quiz_data']
             else:
                 logger.info("Cache expired, generating new quiz")
         else:
             logger.info("No cache found, generating new quiz")
     except Exception as e:
-        logger.error(f"Error accessing cache: {e}", exc_info=True)
+        logger.error("Error accessing cache", error=str(e), exc_info=True)
     
     return None
 
@@ -361,9 +364,9 @@ def store_quiz_in_cache(cache_key, quiz_data):
                 'quiz_type': 'document'
             }
         })
-        logger.info(f"Stored quiz in cache with key: {cache_key}")
+        logger.info("Stored quiz in cache", cache_key=cache_key)
     except Exception as e:
-        logger.error(f"Error storing quiz in cache: {e}", exc_info=True)
+        logger.error("Error storing quiz in cache", error=str(e), exc_info=True)
 
 def create_discussion_rooms(discussions, creator_email=None):
     """Helper to create discussion rooms in both Firestore and memory"""
@@ -402,11 +405,30 @@ def create_discussion_rooms(discussions, creator_email=None):
                     "last_activity": firestore.SERVER_TIMESTAMP
                 })
             except Exception as e:
-                logger.warning(f"Failed to persist discussion room to Firestore: {e}")
+                logger.warning("Failed to persist discussion room to Firestore", error=str(e), exc_info=True)
         
         created_discussions.append({"id": room_id, "q": d["q"]})
     
     return created_discussions
+
+def fetch_user_history(email, limit=10):
+    """
+    Fetches the history of a specific user.
+    This function was not defined in the original log, causing the NameError.
+    I've moved it here so it's defined before it's called.
+    """
+    history = []
+    try:
+        if db:
+            history_ref = db.collection('quiz_activities').where('user_email', '==', email).order_by('timestamp', direction=firestore.Query.DESCENDING).limit(limit)
+            history = [doc.to_dict() for doc in history_ref.stream()]
+            logger.info("Fetched user history", user_email=email, count=len(history))
+        else:
+            logger.info("Firestore not available, returning empty history")
+    except Exception as e:
+        logger.error("Error fetching user history", user_email=email, error=str(e), exc_info=True)
+        history = []
+    return history
 
 # --- Middleware: check active session ---
 @app.before_request
@@ -501,7 +523,7 @@ def login():
             # Store active session
             active_sessions[email] = current_session_id
             
-            logger.info(f"User logged in: {email}")
+            logger.info("User logged in", user_email=email)
             return redirect(url_for("dashboard"))
             
         except requests.exceptions.HTTPError as e:
@@ -511,10 +533,11 @@ def login():
             elif "USER_DISABLED" in str(e):
                 error_msg = "Account disabled"
             flash(error_msg)
+            logger.warning("Failed login attempt", email=email, error_message=error_msg)
             return redirect(url_for("login"))
             
         except Exception as e:
-            logger.error(f"Login error: {e}")
+            logger.exception("Login error", exc_info=True)
             flash("Login failed. Please try again.")
             return redirect(url_for("login"))
 
@@ -534,7 +557,7 @@ def signup():
         return jsonify({"error": "Email and password required"}), 400
     
     if email not in ALLOWED_USERS:
-        logger.warning(f"Signup attempt from non-whitelisted email: {email}")
+        logger.warning("Signup attempt from non-whitelisted email", email=email)
         return jsonify({"error": "Signup restricted. Contact admin."}), 403
     
     if not validate_email(email):
@@ -572,17 +595,17 @@ def signup():
             }
             db.collection('users').document(user_data.get("localId")).set(user_profile)
         
-        logger.info(f"New user registered: {email}")
+        logger.info("New user registered", user_email=email)
         return jsonify({"ok": True, "email": user_data["email"], "idToken": user_data["idToken"]})
     
     except requests.exceptions.HTTPError as e:
         error_msg = "Could not create user"
         if "EMAIL_EXISTS" in str(e):
             error_msg = "Email already exists"
-        logger.warning(f"Failed signup attempt for {email}: {e}")
+        logger.warning("Failed signup attempt", email=email, error_message=error_msg)
         return jsonify({"error": error_msg}), 400
     except Exception as e:
-        logger.error(f"Unexpected error during signup: {e}", exc_info=True)
+        logger.exception("Unexpected error during signup", exc_info=True)
         return jsonify({"error": "Internal server error"}), 500
 
 @app.route("/logout")
@@ -590,7 +613,7 @@ def logout():
     if "user_email" in session:
         email = session["user_email"]
         active_sessions.pop(email, None)
-        logger.info(f"User logged out: {email}")
+        logger.info("User logged out", user_email=email)
     session.clear()
     return redirect(url_for("login_page"))
 
@@ -598,28 +621,9 @@ def logout():
 @login_required
 def dashboard():
     email = session["user_email"]
-    history = fetch_user_history(email, limit=10)
-    
-    # Convert Firestore timestamps to datetime objects if needed
-    formatted_history = []
-    for item in history:
-        if 'timestamp' in item:
-            # If it's a Firestore timestamp, convert to datetime
-            if hasattr(item['timestamp'], 'isoformat'):
-                item['timestamp'] = item['timestamp'].isoformat()
-        formatted_history.append(item)
-    
-    return render_template("dashboard.html", 
-                         email=email, 
-                         history=formatted_history,
-                         grade=session.get("user_grade", "GL10"))
-
-    # Check if this user is admin
-    admin_email = "dangalan20@gmail.com"
-    is_admin = email == admin_email
+    is_admin = email == "dangalan20@gmail.com"
 
     if is_admin:
-        # Admin sees overview of all users
         users_data = {}
         try:
             if db:
@@ -630,18 +634,26 @@ def dashboard():
                     history = [doc.to_dict() for doc in history_ref.stream()]
                     users_data[user_email] = history
         except Exception as e:
-            logger.error(f"Error fetching users overview: {e}")
+            logger.exception("Error fetching users overview for admin", exc_info=True)
             users_data = {}
         return render_template("admin_dashboard.html", users_data=users_data)
     else:
-        # Normal user sees personal dashboard
         history = []
         try:
             history = fetch_user_history(email, limit=10)
+            formatted_history = []
+            for item in history:
+                if 'timestamp' in item and hasattr(item['timestamp'], 'isoformat'):
+                    item['timestamp'] = item['timestamp'].isoformat()
+                formatted_history.append(item)
         except Exception as e:
-            logger.error(f"Error fetching history for {email}: {e}")
+            logger.exception("Error fetching history for user", user_email=email, exc_info=True)
+            formatted_history = []
 
-        return render_template("dashboard.html", email=email, history=history)
+        return render_template("dashboard.html", 
+                               email=email, 
+                               history=formatted_history,
+                               grade=session.get("user_grade", "GL10"))
 
 # --- Free Trial Quiz Route ---
 @app.route("/free_trial_quiz")
@@ -713,12 +725,12 @@ Generate exactly:
         
         return jsonify(data)
     except exceptions.ResourceExhausted as e:
-        logger.error(f"Gemini API quota exceeded: {e}", exc_info=True)
+        logger.error("Gemini API quota exceeded", error=str(e), exc_info=True)
         return jsonify({
             "error": "Daily quiz generation limit reached. Please try again tomorrow."
         }), 429
     except Exception as e:
-        logger.error(f"ERROR in /generate_free_quiz: {e}", exc_info=True)
+        logger.exception("Error in /generate_free_quiz", exc_info=True)
         return jsonify({"error": "Failed to generate quiz. Please try again."}), 500
         
 # --- Document Upload Quiz ---
@@ -817,7 +829,6 @@ Generate:
 - 5 multiple choice questions (MCQs)
 - 2 discussion questions
 """
-
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt_text, generation_config={"response_mime_type": "application/json"})
         raw = response.text.strip() if response and hasattr(response, "text") else "{}"
@@ -831,10 +842,10 @@ Generate:
         return jsonify(data)
 
     except exceptions.ResourceExhausted as e:
-        logger.error(f"Gemini API quota exceeded: {e}", exc_info=True)
+        logger.error("Gemini API quota exceeded", error=str(e), exc_info=True)
         return jsonify({"error": "Daily quiz generation limit reached. Please try again tomorrow."}), 429
     except Exception as e:
-        logger.error(f"ERROR in /generate: {e}", exc_info=True)
+        logger.exception("ERROR in /generate", exc_info=True)
         return jsonify({"error": "Failed to generate quiz. Please try again."}), 500
 
 # --- Discussion Room Routes ---
@@ -859,7 +870,7 @@ def discussion_room(room_id):
         return render_template('discussion.html', room_id=room_id, question=room['question'])
     
     except Exception as e:
-        logger.error(f"Error accessing discussion room {room_id}: {e}")
+        logger.exception("Error accessing discussion room", room_id=room_id, exc_info=True)
         return "An error occurred while accessing the discussion room", 500
 
 @app.route('/check_auth')
@@ -888,17 +899,16 @@ def check_auth():
         })
     
     except Exception as e:
-        logger.error(f"Error in check_auth: {e}")
+        logger.exception("Error in check_auth", exc_info=True)
         return jsonify({"authenticated": False, "error": "Internal server error"}), 500
 
 @app.route('/messages/<room_id>')
 @login_required
-@limiter.limit("200 per hour")  # Increased from 50 to 200 per hour
+@limiter.limit("200 per hour")
 def get_messages(room_id):
     try:
         messages = []
-        room_found = False
-
+        
         # Try to get messages from Firestore first
         if db:
             room_ref = db.collection('discussion_rooms').document(room_id)
@@ -906,70 +916,103 @@ def get_messages(room_id):
             if room_doc.exists:
                 room_data = room_doc.to_dict()
                 messages = room_data.get('messages', [])
-                room_found = True
-
-        # Fallback to in-memory storage if not found in Firestore
-        if not room_found:
-            room_data = rooms.get(room_id)
-            if room_data:
-                messages = room_data.get('messages', [])
-                room_found = True
         
-        # Handle room not found
-        if not room_found:
-            return jsonify({"error": "Discussion room not found"}), 404
+        # Fallback to in-memory if Firestore is not available or has no data
+        if not messages:
+            messages = rooms.get(room_id, {}).get('messages', [])
             
-        # Convert Firestore Timestamps to strings for JSON serialization
-        for msg in messages:
-            if isinstance(msg.get('timestamp'), datetime):
-                msg['timestamp'] = msg['timestamp'].isoformat()
-            elif hasattr(msg.get('timestamp'), 'isoformat'):
-                msg['timestamp'] = msg['timestamp'].isoformat()
-
-        return jsonify({"messages": messages}), 200
-
+        return jsonify({"messages": messages})
     except Exception as e:
-        logger.error(f"Error fetching messages for room {room_id}: {e}", exc_info=True)
+        logger.exception("Error fetching messages", room_id=room_id, exc_info=True)
         return jsonify({"error": "Failed to retrieve messages"}), 500
 
-@app.route('/messages/<room_id>', methods=['POST'])
+@app.route('/send_message/<room_id>', methods=['POST'])
 @login_required
-@limiter.limit("60 per minute")
-def post_message(room_id):
+@limiter.limit("100 per hour")
+def send_message(room_id):
     try:
         data = request.get_json()
-        message_text = data.get('message')
-        if not message_text:
+        if not data or not data.get('message'):
             return jsonify({"error": "Message content is required"}), 400
-
-        user_email = session["user_email"]
-        timestamp = datetime.now()
+        
+        email = session["user_email"]
+        message_content = data['message']
+        timestamp = datetime.now().isoformat()
         
         new_message = {
-            "user": user_email,
-            "text": message_text,
-            "timestamp": timestamp,
+            "user": email,
+            "text": message_content,
+            "timestamp": timestamp
         }
-
+        
+        # Try to update Firestore first
+        if db:
+            room_ref = db.collection('discussion_rooms').document(room_id)
+            room_ref.update({
+                'messages': firestore.ArrayUnion([new_message]),
+                'last_activity': firestore.SERVER_TIMESTAMP
+            })
+            logger.info("Message sent via Firestore", room_id=room_id, user=email)
+        
         # Update in-memory storage
         if room_id in rooms:
             rooms[room_id]['messages'].append(new_message)
-            rooms[room_id]['last_activity'] = timestamp
-        
-        # Update Firestore
-        if db:
-            try:
-                room_ref = db.collection('discussion_rooms').document(room_id)
-                # Use array_union to atomically add the new message
-                room_ref.update({
-                    "messages": firestore.ArrayUnion([new_message]),
-                    "last_activity": firestore.SERVER_TIMESTAMP
-                })
-            except Exception as e:
-                logger.warning(f"Failed to save message to Firestore: {e}")
-        
-        return jsonify({"status": "success", "message": "Message posted"}), 201
+            rooms[room_id]['last_activity'] = datetime.now()
+            
+        return jsonify({"status": "Message sent"})
 
     except Exception as e:
-        logger.error(f"Error posting message to room {room_id}: {e}", exc_info=True)
-        return jsonify({"error": "Failed to post message"}), 500
+        logger.exception("Failed to send message", room_id=room_id, exc_info=True)
+        return jsonify({"error": "Failed to send message"}), 500
+
+@app.route('/get_discussion_rooms')
+@login_required
+def get_discussion_rooms():
+    try:
+        rooms_list = []
+        
+        # Try to get rooms from Firestore first
+        if db:
+            rooms_ref = db.collection('discussion_rooms').order_by('last_activity', direction=firestore.Query.DESCENDING).limit(10).stream()
+            for room_doc in rooms_ref:
+                room_data = room_doc.to_dict()
+                rooms_list.append({
+                    "id": room_doc.id,
+                    "q": room_data.get("question", "N/A"),
+                    "last_activity": room_data.get("last_activity")
+                })
+            
+            logger.info("Fetched discussion rooms from Firestore", count=len(rooms_list))
+        
+        # If Firestore fails or is not available, use in-memory
+        if not rooms_list:
+            rooms_list = [{"id": r_id, "q": r_data.get("question", "N/A")} for r_id, r_data in rooms.items()]
+            logger.info("Fetched discussion rooms from memory", count=len(rooms_list))
+            
+        return jsonify({"rooms": rooms_list})
+    
+    except Exception as e:
+        logger.exception("Error fetching discussion rooms", exc_info=True)
+        return jsonify({"error": "Failed to retrieve discussion rooms"}), 500
+
+@app.route('/submit_score', methods=['POST'])
+@login_required
+def submit_score():
+    try:
+        data = request.get_json()
+        score = data.get('score')
+        quiz_type = data.get('quiz_type')
+        subject = data.get('subject', "N/A")
+        
+        if score is None or quiz_type is None:
+            return jsonify({"error": "Score and quiz type are required"}), 400
+        
+        log_quiz_activity(session["user_email"], quiz_type, subject, score)
+        return jsonify({"status": "Score submitted"})
+    except Exception as e:
+        logger.exception("Error submitting score", exc_info=True)
+        return jsonify({"error": "Failed to submit score"}), 500
+
+
+if __name__ == "__main__":
+    app.run(host='0.0.0.0', debug=True)
