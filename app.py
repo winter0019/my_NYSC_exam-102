@@ -276,7 +276,6 @@ def home():
 def health():
     return jsonify({"ok": True, "time": datetime.utcnow().isoformat() + "Z"})
 
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -309,14 +308,15 @@ def login():
                 role = "admin" if email == "admin@nysc.gov.ng" else "user"
                 return jsonify({"ok": True, "role": role})
 
+            # 👇 this must be aligned with `if resp.status_code == 200`
             return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
         except Exception as e:
             logger.error(f"Login failed: {e}")
             return jsonify({"ok": False, "error": "Authentication error"}), 500
 
+    # 👇 this must be aligned with `if request.method == "POST"`
     return render_template("login.html")
-
 
         return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
@@ -564,6 +564,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
