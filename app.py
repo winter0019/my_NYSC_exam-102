@@ -276,30 +276,47 @@ def home():
 def health():
     return jsonify({"ok": True, "time": datetime.utcnow().isoformat() + "Z"})
 
-@app.route("/login", methods=["POST"])
+@app.route("/login", methods=["GET", "POST"])
 def login():
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        email = data.get("email", "").lower()
-        password = data.get("password", "")
+    if request.method == "POST":
+        if request.is_json:
+            data = request.get_json(silent=True) or {}
+            email = data.get("email", "").lower()
+            password = data.get("password", "")
+        else:
+            # fallback for form submission (optional)
+            email = request.form.get("email", "").lower()
+            password = request.form.get("password", "")
 
-        if not email or not password:
-            return jsonify({"ok": False, "error": "Email and password required"}), 400
+        if email not in ALLOWED_USERS:
+            return jsonify({"ok": False, "error": "Unauthorized email"}), 401
 
-        if email not in ALLOWED_USERS and email != "admin@nysc.gov.ng":
-            return jsonify({"ok": False, "error": "Unauthorized email"}), 403
+        try:
+            api_key = os.getenv("FIREBASE_API_KEY")
+            if not api_key:
+                logger.error("FIREBASE_API_KEY not set")
+                return jsonify({"ok": False, "error": "Auth service unavailable"}), 500
 
-        api_key = os.getenv("FIREBASE_API_KEY")
-        if not api_key:
-            logger.error("FIREBASE_API_KEY not set")
-            return jsonify({"ok": False, "error": "Auth service unavailable"}), 500
+            resp = requests.post(
+                "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
+                params={"key": api_key},
+                json={"email": email, "password": password, "returnSecureToken": True},
+                timeout=15,
+            )
 
-        resp = requests.post(
-            "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
-            params={"key": api_key},
-            json={"email": email, "password": password, "returnSecureToken": True},
-            timeout=15,
-        )
+            if resp.status_code == 200:
+                session["user_email"] = email
+                role = "admin" if email == "admin@nysc.gov.ng" else "user"
+                return jsonify({"ok": True, "role": role})
+
+            return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+        except Exception as e:
+            logger.error(f"Login failed: {e}")
+            return jsonify({"ok": False, "error": "Authentication error"}), 500
+
+    # For GET requests, still render login.html
+    return render_template("login.html")
+
 
         if resp.status_code == 200:
             session["user_email"] = email
@@ -550,4 +567,5 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
