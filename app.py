@@ -279,6 +279,7 @@ def health():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
+        # Extract request data
         if request.is_json:
             data = request.get_json(silent=True) or {}
             email = data.get("email", "").lower()
@@ -287,6 +288,7 @@ def login():
             email = request.form.get("email", "").lower()
             password = request.form.get("password", "")
 
+        # Check allowed users
         if email not in ALLOWED_USERS:
             return jsonify({"ok": False, "error": "Unauthorized email"}), 401
 
@@ -296,6 +298,7 @@ def login():
                 logger.error("FIREBASE_API_KEY not set")
                 return jsonify({"ok": False, "error": "Auth service unavailable"}), 500
 
+            # Call Firebase Auth REST API
             resp = requests.post(
                 "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
                 params={"key": api_key},
@@ -307,28 +310,21 @@ def login():
                 session["user_email"] = email
                 role = "admin" if email == "admin@nysc.gov.ng" else "user"
                 return jsonify({"ok": True, "role": role})
-
-            return jsonify({"ok": False, "error": "Invalid credentials"}), 401
+            else:
+                return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
         except Exception as e:
             logger.error(f"Login failed: {e}")
             return jsonify({"ok": False, "error": "Authentication error"}), 500
 
+    # GET request → return login page
     return render_template("login.html")
 
-        return jsonify({"ok": False, "error": "Invalid credentials"}), 401
 
-    except Exception as e:
-        logger.error(f"Login failed: {e}")
-        return jsonify({"ok": False, "error": "Authentication error"}), 500
-
-
-@app.route("/logout", methods=["GET", "POST"])
+@app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
-    if request.method == "POST":
-        return jsonify({"ok": True})
-    return redirect(url_for("login"))
+    return jsonify({"ok": True})
 
 
 @app.route("/dashboard")
@@ -562,6 +558,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
