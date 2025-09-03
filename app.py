@@ -20,6 +20,8 @@ from dotenv import load_dotenv
 
 import requests
 import tempfile
+import tempfile, os
+from werkzeug.utils import secure_filename
 import docx
 import PyPDF2
 import pytesseract
@@ -429,23 +431,27 @@ def generate_quiz():
         grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
 
-        # 2. Save temp file and extract text
+        # 2. Save temp file with correct extension
         filename = secure_filename(file.filename)
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        file.save(tmp.name)
+        suffix = os.path.splitext(filename)[1] or ".pdf"  # fallback if no extension
 
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            file.save(tmp.name)
+            tmp_path = tmp.name
+
+        # 3. Extract text from file
         try:
-            context_text = extract_text_from_file(tmp.name)
+            context_text = extract_text_from_file(tmp_path)
         finally:
             try:
-                os.unlink(tmp.name)
-            except Exception:
-                pass
+                os.unlink(tmp_path)
+            except Exception as cleanup_err:
+                app.logger.warning(f"Could not delete temp file: {cleanup_err}")
 
         if not context_text:
             return jsonify({"error": "Could not extract text from uploaded file"}), 400
 
-        # 3. Call Gemini with cache
+        # 4. Call Gemini with cache
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "genquiz")
         cached = cache_get(cache_key)
         if cached:
@@ -453,11 +459,20 @@ def generate_quiz():
 
         quiz = call_gemini_for_quiz(context_text, subject, grade)
 
-        # 4. Log quiz for debugging
+        # 5. Log quiz for debugging
         app.logger.info("Generated quiz: %s", quiz)
 
         if not quiz.get("questions"):
             return jsonify({"error": "No questions generated"}), 500
+
+        # 6. Cache and return
+        cache_set(cache_key, quiz, ttl=3600)
+        return jsonify(quiz)
+
+    except Exception as e:
+        app.logger.error(f"Quiz generation failed: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error"}), 500
+
 
         cache_set(cache_key, quiz, 10)
         log_quiz_activity(session["user_email"], "generate_quiz", filename)
@@ -652,6 +667,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
