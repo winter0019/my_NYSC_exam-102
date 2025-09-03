@@ -6,277 +6,272 @@
     <title>Admin Dashboard - NYSC Exam Prep</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <script>
-      // The `__app_id`, `__firebase_config` and `__initial_auth_token` are automatically provided by the environment.
-      // Use valid defaults for testing if the environment variables are not set.
-      const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-      const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-          apiKey: "AIzaSyCyU4fCiZEo_jGCf3Am7_7CGwH43EjqQD4",
-          authDomain: "exam-prep-102.firebaseapp.com",
-          projectId: "exam-prep-102",
-          storageBucket: "exam-prep-102.firebasestorage.app",
-          messagingSenderId: "1048082051309",
-          appId: "1:1048082051309:web:60c9ef8aaa0e9f638d5ce4",
-          measurementId: "G-0ZRVZBM37H"
-      };
-      const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-    </script>
-    <script type="module">
-      import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-      import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-      import { getFirestore, collection, onSnapshot, doc, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-      
-      // Set debug logging for Firestore to help with troubleshooting
-      setLogLevel('debug');
-
-      let app = null;
-      let db = null;
-      let auth = null;
-      let usersData = {};
-      
-      const statusBox = document.getElementById('firebase-status');
-      const currentUserSpan = document.getElementById('current-user-id');
-
-      // Check if the provided Firebase config has a valid API key
-      if (!firebaseConfig.apiKey || firebaseConfig.apiKey.length < 5) {
-          statusBox.textContent = 'Status: Error (Invalid API Key)';
-          statusBox.classList.add('bg-red-100', 'text-red-700');
-          console.error("Firebase configuration is invalid. Please provide a valid apiKey.");
-      } else {
-          try {
-              app = initializeApp(firebaseConfig);
-              auth = getAuth(app);
-              db = getFirestore(app);
-              statusBox.textContent = 'Status: Connecting...';
-              
-              // Handle user authentication and data loading
-              onAuthStateChanged(auth, async (user) => {
-                  if (user) {
-                      statusBox.textContent = `Status: Connected`;
-                      statusBox.classList.remove('bg-gray-100', 'text-gray-600');
-                      statusBox.classList.add('bg-green-100', 'text-green-700');
-                      currentUserSpan.textContent = user.uid;
-                      // Attach the listener to a secure, private collection
-                      attachFirestoreListener();
-                  } else {
-                      console.log("No user is signed in. Attempting to authenticate...");
-                      try {
-                          if (initialAuthToken) {
-                              await signInWithCustomToken(auth, initialAuthToken);
-                              console.log("Signed in with custom token.");
-                          } else {
-                              await signInAnonymously(auth);
-                              console.log("Signed in anonymously.");
-                          }
-                      } catch (error) {
-                          console.error("Authentication failed:", error);
-                          statusBox.textContent = 'Status: Auth Error';
-                          statusBox.classList.add('bg-red-100', 'text-red-700');
-                      }
-                  }
-              });
-          } catch (e) {
-              statusBox.textContent = 'Status: Init Error';
-              statusBox.classList.add('bg-red-100', 'text-red-700');
-              console.error("Firebase initialization failed:", e);
-          }
-      }
-      
-      // Attach real-time Firestore listener for the admin's view of all users
-      function attachFirestoreListener() {
-          // IMPORTANT: This path requires security rules to ensure only admins can read it.
-          // Example Rule: allow read: if request.auth.token.admin == true;
-          const usersCollectionPath = `/artifacts/${appId}/admin/users`;
-          const q = collection(db, usersCollectionPath);
-          onSnapshot(q, (querySnapshot) => {
-              console.log("Received new data from Firestore.");
-              usersData = {};
-              let totalActivities = 0;
-              let totalScoreSum = 0;
-              let totalScoreCount = 0;
-              let activeUsers = 0;
-              
-              if (querySnapshot.empty) {
-                  console.log("No documents in collection.");
-              }
-
-              querySnapshot.forEach((doc) => {
-                  const userData = doc.data();
-                  usersData[doc.id] = userData.activity_history || [];
-                  totalActivities += (userData.activity_history || []).length;
-                  if (userData.activity_history) {
-                      let hasScore = false;
-                      userData.activity_history.forEach(activity => {
-                          if (activity.score !== undefined && activity.score !== null) {
-                              totalScoreSum += activity.score;
-                              totalScoreCount++;
-                              hasScore = true;
-                          }
-                      });
-                      if (hasScore) {
-                          activeUsers++;
-                      }
-                  }
-              });
-
-              // Update the dashboard UI with new data
-              renderDashboard(usersData, totalActivities, totalScoreSum, totalScoreCount, activeUsers);
-              console.log("Dashboard rendered with updated data.");
-          }, (error) => {
-              console.error("Firestore snapshot listener failed:", error);
-          });
-      }
-      
-      // Function to render the dashboard
-      function renderDashboard(users, totalActivities, totalScoreSum, totalScoreCount, activeUsers) {
-          const totalUsers = Object.keys(users).length;
-          const avgScore = totalScoreCount > 0 ? (totalScoreSum / totalScoreCount).toFixed(1) : 'N/A';
-
-          document.getElementById('total-users').textContent = totalUsers;
-          document.getElementById('total-activities').textContent = totalActivities;
-          document.getElementById('active-users').textContent = activeUsers;
-          document.getElementById('average-score').textContent = avgScore + (avgScore !== 'N/A' ? '%' : '');
-
-          const usersSection = document.getElementById('users-list-container');
-          usersSection.innerHTML = '';
-          
-          if (totalUsers === 0) {
-              usersSection.innerHTML = `
-                  <div class="text-center py-8 text-gray-400">
-                      <i class="fas fa-exclamation-circle text-4xl mb-4"></i>
-                      <h3 class="text-lg font-semibold">No User Data Available</h3>
-                      <p>There are no users or activity data to display.</p>
-                  </div>
-              `;
-              return;
-          }
-
-          // Render user cards
-          Object.entries(users).forEach(([email, history]) => {
-              const userScores = history.filter(item => item.score !== undefined).map(item => item.score);
-              const userAvgScore = userScores.length > 0 ? (userScores.reduce((a, b) => a + b, 0) / userScores.length).toFixed(1) : 'N/A';
-              const userCard = document.createElement('div');
-              userCard.classList.add('user-card', 'bg-white', 'rounded-xl', 'shadow-lg', 'overflow-hidden', 'mb-6', 'data-[email]');
-              userCard.dataset.email = email.toLowerCase();
-
-              let activityListHtml = '';
-              if (history.length > 0) {
-                  const recentHistory = history.slice(0, 5);
-                  activityListHtml = `
-                      <h4 class="font-semibold text-lg mb-2 text-gray-700">Recent Activity</h4>
-                      <ul class="space-y-3">
-                          ${recentHistory.map(item => `
-                              <li class="p-4 bg-gray-50 rounded-lg border-l-4 border-l-sky-400">
-                                  <div class="flex items-center justify-between">
-                                      <span class="font-bold text-gray-800">${item.subject || 'Unknown Subject'}</span>
-                                      ${item.score !== undefined ? `<span class="bg-sky-500 text-white text-xs font-semibold px-2 py-1 rounded-full">${item.score}/${item.total || 5}</span>` : ''}
-                                  </div>
-                                  <div class="text-sm text-gray-500 mt-1">
-                                      <i class="fas fa-clock mr-1"></i> ${new Date(item.timestamp).toLocaleString()} |
-                                      <i class="fas fa-tag mx-1"></i> ${item.quiz_type || 'Quiz'}
-                                      ${item.source ? `| <i class="fas fa-file mx-1"></i> ${item.source}` : ''}
-                                  </div>
-                              </li>
-                          `).join('')}
-                      </ul>
-                      ${history.length > 5 ? `
-                          <p class="text-center text-gray-500 mt-4 text-sm">
-                              <i class="fas fa-ellipsis-h"></i> ${history.length - 5} more activities
-                          </p>` : ''}
-                  `;
-              } else {
-                  activityListHtml = `
-                      <div class="text-center py-8 text-gray-400">
-                          <i class="fas fa-inbox text-4xl mb-4"></i>
-                          <p>No activity recorded yet</p>
-                      </div>
-                  `;
-              }
-
-              userCard.innerHTML = `
-                  <div class="flex flex-col md:flex-row items-center justify-between p-6 bg-gray-100 border-b border-gray-200">
-                      <div class="flex items-center gap-2 mb-4 md:mb-0">
-                          <i class="fas fa-user-circle text-2xl text-gray-600"></i>
-                          <div class="font-semibold text-gray-800 text-lg">${email}</div>
-                      </div>
-                      <div class="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
-                          <span class="px-3 py-1 bg-white rounded-full border border-gray-300 shadow-sm">
-                              <i class="fas fa-history mr-1"></i> ${history.length} activities
-                          </span>
-                          <span class="px-3 py-1 bg-white rounded-full border border-gray-300 shadow-sm">
-                              <i class="fas fa-chart-line mr-1"></i> ${userAvgScore}% avg
-                          </span>
-                      </div>
-                  </div>
-                  <div class="p-6">
-                      ${activityListHtml}
-                  </div>
-              `;
-              usersSection.appendChild(userCard);
-          });
-      }
-      
-      // Filter users by email
-      function filterUsers() {
-          const filter = document.getElementById('user-filter').value.toLowerCase();
-          const userCards = document.querySelectorAll('.user-card');
-          userCards.forEach(card => {
-              const email = card.dataset.email;
-              if (email.includes(filter)) {
-                  card.classList.remove('hidden');
-              } else {
-                  card.classList.add('hidden');
-              }
-          });
-      }
-      
-      // Export data function
-      function exportData() {
-          const dataStr = JSON.stringify(usersData, null, 2);
-          const blob = new Blob([dataStr], { type: 'application/json' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'nysc-exam-prep-data.json';
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          URL.revokeObjectURL(url);
-          showModal("Data Exported", "User data has been successfully downloaded as 'nysc-exam-prep-data.json'.");
-      }
-      
-      // Handle logout
-      function handleLogout() {
-          signOut(auth).then(() => {
-              console.log("User signed out successfully.");
-              showModal("Logged Out", "You have been successfully logged out.");
-          }).catch((error) => {
-              console.error("Error signing out:", error);
-          });
-      }
-
-      // Simple modal for alerts
-      function showModal(title, message) {
-          const modal = document.getElementById('modal');
-          document.getElementById('modal-title').textContent = title;
-          document.getElementById('modal-message').textContent = message;
-          modal.classList.remove('hidden');
-          setTimeout(() => modal.classList.add('hidden'), 3000);
-      }
-      
-      // Attach event listeners after the DOM is ready
-      document.addEventListener('DOMContentLoaded', () => {
-          document.getElementById('user-filter').addEventListener('keyup', filterUsers);
-          document.getElementById('export-btn').addEventListener('click', exportData);
-          document.getElementById('logout-btn').addEventListener('click', handleLogout);
-      });
-    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
-      body { font-family: 'Inter', sans-serif; }
+        body { font-family: 'Inter', sans-serif; }
     </style>
+    
+    <!-- Firebase SDKs (non-modular, for compatibility) -->
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-firestore.js"></script>
 </head>
 <body class="bg-gray-100 p-6 min-h-screen font-sans">
+    <script>
+        // The __app_id, __firebase_config and __initial_auth_token are provided by the environment.
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "AIzaSyCyU4fCiZEo_jGCf3Am7_7CGwH43EjqQD4",
+            authDomain: "exam-prep-102.firebaseapp.com",
+            projectId: "exam-prep-102",
+            storageBucket: "exam-prep-102.firebasestorage.app",
+            messagingSenderId: "1048082051309",
+            appId: "1:1048082051309:web:60c9ef8aaa0e9f638d5ce4",
+            measurementId: "G-0ZRVZBM37H"
+        };
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
+        let db = null;
+        let auth = null;
+        let usersData = {};
+
+        const statusBox = document.getElementById('firebase-status');
+        const currentUserSpan = document.getElementById('current-user-id');
+
+        // Check for valid API key and initialize Firebase
+        if (!firebaseConfig.apiKey || firebaseConfig.apiKey.length < 5) {
+            statusBox.textContent = 'Status: Error (Invalid API Key)';
+            statusBox.classList.add('bg-red-100', 'text-red-700');
+            console.error("Firebase configuration is invalid. Please provide a valid apiKey.");
+        } else {
+            try {
+                firebase.initializeApp(firebaseConfig);
+                auth = firebase.auth();
+                db = firebase.firestore();
+                statusBox.textContent = 'Status: Connecting...';
+
+                // Attach a listener to handle authentication state changes
+                auth.onAuthStateChanged(async (user) => {
+                    if (user) {
+                        statusBox.textContent = `Status: Connected`;
+                        statusBox.classList.remove('bg-gray-100', 'text-gray-600');
+                        statusBox.classList.add('bg-green-100', 'text-green-700');
+                        currentUserSpan.textContent = user.uid;
+                        attachFirestoreListener();
+                    } else {
+                        console.log("No user is signed in. Attempting to authenticate...");
+                        try {
+                            if (initialAuthToken) {
+                                await auth.signInWithCustomToken(initialAuthToken);
+                                console.log("Signed in with custom token.");
+                            } else {
+                                await auth.signInAnonymously();
+                                console.log("Signed in anonymously.");
+                            }
+                        } catch (error) {
+                            console.error("Authentication failed:", error);
+                            statusBox.textContent = 'Status: Auth Error';
+                            statusBox.classList.add('bg-red-100', 'text-red-700');
+                        }
+                    }
+                });
+            } catch (e) {
+                statusBox.textContent = 'Status: Init Error';
+                statusBox.classList.add('bg-red-100', 'text-red-700');
+                console.error("Firebase initialization failed:", e);
+            }
+        }
+
+        // Attach real-time Firestore listener for the admin's view of all users
+        function attachFirestoreListener() {
+            // The path for public/shared data that admins can view.
+            const usersCollectionPath = `artifacts/${appId}/public/data/users`;
+            db.collection(usersCollectionPath).onSnapshot((querySnapshot) => {
+                console.log("Received new data from Firestore.");
+                usersData = {};
+                let totalActivities = 0;
+                let totalScoreSum = 0;
+                let totalScoreCount = 0;
+                let activeUsers = 0;
+                
+                if (querySnapshot.empty) {
+                    console.log("No documents in collection.");
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const userData = doc.data();
+                    usersData[doc.id] = userData.activity_history || [];
+                    totalActivities += (userData.activity_history || []).length;
+                    if (userData.activity_history) {
+                        let hasScore = false;
+                        userData.activity_history.forEach(activity => {
+                            if (activity.score !== undefined && activity.score !== null) {
+                                totalScoreSum += activity.score;
+                                totalScoreCount++;
+                                hasScore = true;
+                            }
+                        });
+                        if (hasScore) {
+                            activeUsers++;
+                        }
+                    }
+                });
+
+                renderDashboard(usersData, totalActivities, totalScoreSum, totalScoreCount, activeUsers);
+                console.log("Dashboard rendered with updated data.");
+            }, (error) => {
+                console.error("Firestore snapshot listener failed:", error);
+            });
+        }
+        
+        // Function to render the dashboard
+        function renderDashboard(users, totalActivities, totalScoreSum, totalScoreCount, activeUsers) {
+            const totalUsers = Object.keys(users).length;
+            const avgScore = totalScoreCount > 0 ? (totalScoreSum / totalScoreCount).toFixed(1) : 'N/A';
+
+            document.getElementById('total-users').textContent = totalUsers;
+            document.getElementById('total-activities').textContent = totalActivities;
+            document.getElementById('active-users').textContent = activeUsers;
+            document.getElementById('average-score').textContent = avgScore + (avgScore !== 'N/A' ? '%' : '');
+
+            const usersSection = document.getElementById('users-list-container');
+            usersSection.innerHTML = '';
+            
+            if (totalUsers === 0) {
+                usersSection.innerHTML = `
+                    <div class="text-center py-8 text-gray-400">
+                        <i class="fas fa-exclamation-circle text-4xl mb-4"></i>
+                        <h3 class="text-lg font-semibold">No User Data Available</h3>
+                        <p>There are no users or activity data to display.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Render user cards
+            Object.entries(users).forEach(([email, history]) => {
+                const userScores = history.filter(item => item.score !== undefined).map(item => item.score);
+                const userAvgScore = userScores.length > 0 ? (userScores.reduce((a, b) => a + b, 0) / userScores.length).toFixed(1) : 'N/A';
+                const userCard = document.createElement('div');
+                userCard.classList.add('user-card', 'bg-white', 'rounded-xl', 'shadow-lg', 'overflow-hidden', 'mb-6');
+                userCard.dataset.email = email.toLowerCase();
+
+                let activityListHtml = '';
+                if (history.length > 0) {
+                    const recentHistory = history.slice(0, 5);
+                    activityListHtml = `
+                        <h4 class="font-semibold text-lg mb-2 text-gray-700">Recent Activity</h4>
+                        <ul class="space-y-3">
+                            ${recentHistory.map(item => `
+                                <li class="p-4 bg-gray-50 rounded-lg border-l-4 border-l-sky-400">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-bold text-gray-800">${item.subject || 'Unknown Subject'}</span>
+                                        ${item.score !== undefined ? `<span class="bg-sky-500 text-white text-xs font-semibold px-2 py-1 rounded-full">${item.score}/${item.total || 5}</span>` : ''}
+                                    </div>
+                                    <div class="text-sm text-gray-500 mt-1">
+                                        <i class="fas fa-clock mr-1"></i> ${new Date(item.timestamp).toLocaleString()} |
+                                        <i class="fas fa-tag mx-1"></i> ${item.quiz_type || 'Quiz'}
+                                        ${item.source ? `| <i class="fas fa-file mx-1"></i> ${item.source}` : ''}
+                                    </div>
+                                </li>
+                            `).join('')}
+                        </ul>
+                        ${history.length > 5 ? `
+                            <p class="text-center text-gray-500 mt-4 text-sm">
+                                <i class="fas fa-ellipsis-h"></i> ${history.length - 5} more activities
+                            </p>` : ''}
+                    `;
+                } else {
+                    activityListHtml = `
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fas fa-inbox text-4xl mb-4"></i>
+                            <p>No activity recorded yet</p>
+                        </div>
+                    `;
+                }
+
+                userCard.innerHTML = `
+                    <div class="flex flex-col md:flex-row items-center justify-between p-6 bg-gray-100 border-b border-gray-200">
+                        <div class="flex items-center gap-2 mb-4 md:mb-0">
+                            <i class="fas fa-user-circle text-2xl text-gray-600"></i>
+                            <div class="font-semibold text-gray-800 text-lg">${email}</div>
+                        </div>
+                        <div class="flex flex-wrap justify-center gap-4 text-sm text-gray-600">
+                            <span class="px-3 py-1 bg-white rounded-full border border-gray-300 shadow-sm">
+                                <i class="fas fa-history mr-1"></i> ${history.length} activities
+                            </span>
+                            <span class="px-3 py-1 bg-white rounded-full border border-gray-300 shadow-sm">
+                                <i class="fas fa-chart-line mr-1"></i> ${userAvgScore}% avg
+                            </span>
+                        </div>
+                    </div>
+                    <div class="p-6">
+                        ${activityListHtml}
+                    </div>
+                `;
+                usersSection.appendChild(userCard);
+            });
+        }
+        
+        // Filter users by email
+        function filterUsers() {
+            const filter = document.getElementById('user-filter').value.toLowerCase();
+            const userCards = document.querySelectorAll('.user-card');
+            userCards.forEach(card => {
+                const email = card.dataset.email;
+                if (email.includes(filter)) {
+                    card.classList.remove('hidden');
+                } else {
+                    card.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Export data function
+        function exportData() {
+            const dataStr = JSON.stringify(usersData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'nysc-exam-prep-data.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            showModal("Data Exported", "User data has been successfully downloaded as 'nysc-exam-prep-data.json'.");
+        }
+        
+        // Handle logout
+        function handleLogout() {
+            auth.signOut().then(() => {
+                console.log("User signed out successfully.");
+                // Redirect to login page after sign out
+                window.location.href = '/login';
+            }).catch((error) => {
+                console.error("Error signing out:", error);
+            });
+        }
+
+        // Simple modal for alerts
+        function showModal(title, message) {
+            const modal = document.getElementById('modal');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-message').textContent = message;
+            modal.classList.remove('hidden');
+            setTimeout(() => modal.classList.add('hidden'), 3000);
+        }
+        
+        // Attach event listeners after the DOM is ready
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('user-filter').addEventListener('keyup', filterUsers);
+            document.getElementById('export-btn').addEventListener('click', exportData);
+            document.getElementById('logout-btn').addEventListener('click', handleLogout);
+        });
+    </script>
+    
     <!-- Main Container -->
     <div class="max-w-7xl mx-auto bg-white rounded-3xl shadow-2xl overflow-hidden">
 
@@ -307,10 +302,10 @@
         <!-- Main Content -->
         <main class="p-8 space-y-8">
             <div id="firebase-status" class="p-4 rounded-xl text-sm font-semibold bg-gray-100 text-gray-600 transition-colors duration-300">
-              Status: Initializing...
+                Status: Initializing...
             </div>
             <div class="p-4 bg-gray-50 rounded-xl text-sm text-gray-600">
-              <span class="font-semibold">Current User ID:</span> <span id="current-user-id" class="break-words">...</span>
+                <span class="font-semibold">Current User ID:</span> <span id="current-user-id" class="break-words">...</span>
             </div>
             
             <!-- Statistics Grid -->
