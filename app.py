@@ -411,16 +411,14 @@ def quiz():
 @login_required
 def generate_quiz():
     """
-    Frontend (quiz.html) posts FormData with keys:
-      - document (file: pdf/docx/image)
-      - grade
-      - subject
+    Handle document upload, extract text, and generate quiz with Gemini.
     Responds with:
       { "questions": [ { "question": str, "options": [..], "answer": str } ] }
     """
     try:
+        # 1. Check uploaded file
         if "document" not in request.files:
-            return jsonify({"error": "No file uploaded (expecting field 'document')"}), 400
+            return jsonify({"error": "No file uploaded (field: 'document')"}), 400
 
         file = request.files["document"]
         if not file or not allowed_file(file.filename):
@@ -429,6 +427,7 @@ def generate_quiz():
         grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
 
+        # 2. Save temp file and extract text
         filename = secure_filename(file.filename)
         tmp = tempfile.NamedTemporaryFile(delete=False)
         file.save(tmp.name)
@@ -442,21 +441,31 @@ def generate_quiz():
                 pass
 
         if not context_text:
-            return jsonify({"error": "Could not extract text from the uploaded file"}), 400
+            return jsonify({"error": "Could not extract text from uploaded file"}), 400
 
-        # --- Cache key ---
+        # 3. Call Gemini with cache
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "genquiz")
         cached = cache_get(cache_key)
         if cached:
             return jsonify(cached)
 
-        # --- Call Gemini ---
         quiz = call_gemini_for_quiz(context_text, subject, grade)
 
-        # --- Safety checks ---
-        if not quiz or "questions" not in quiz or not isinstance(quiz["questions"], list):
-            logger.error("Gemini returned invalid quiz structure")
-            return jsonify({"error": "Quiz generation failed (invalid structure)"}), 500
+        # 4. Log quiz for debugging
+        app.logger.info("Generated quiz: %s", quiz)
+
+        if not quiz.get("questions"):
+            return jsonify({"error": "No questions generated"}), 500
+
+        cache_set(cache_key, quiz, 10)
+        log_quiz_activity(session["user_email"], "generate_quiz", filename)
+        return jsonify(quiz)
+
+    except Exception as e:
+        import traceback
+        app.logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+        return jsonify({"error": "Quiz generation failed"}), 500
+
 
         # Normalize each question
         safe_questions = []
@@ -641,6 +650,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
