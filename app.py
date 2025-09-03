@@ -376,6 +376,11 @@ def generate_free_quiz():
         logger.error(f"Free quiz error: {e}")
         return jsonify({"error": "Quiz generation failed"}), 500
 
+@app.route("/quiz")
+@login_required
+def quiz():
+    return render_template("quiz.html", email=session["user_email"])
+
 
 # --- Document Upload Quiz ---
 @app.route("/generate_quiz", methods=["POST"])
@@ -585,6 +590,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
