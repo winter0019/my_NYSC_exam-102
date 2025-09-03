@@ -275,7 +275,6 @@ def home():
 @app.route("/health")
 def health():
     return jsonify({"ok": True, "time": datetime.utcnow().isoformat() + "Z"})
-
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
@@ -284,7 +283,6 @@ def login():
             email = data.get("email", "").lower()
             password = data.get("password", "")
         else:
-            # fallback for form submission (optional)
             email = request.form.get("email", "").lower()
             password = request.form.get("password", "")
 
@@ -315,8 +313,8 @@ def login():
             logger.error(f"Login failed: {e}")
             return jsonify({"ok": False, "error": "Authentication error"}), 500
 
-    # For GET requests, still render login.html
     return render_template("login.html")
+
 
 
         if resp.status_code == 200:
@@ -568,6 +566,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
