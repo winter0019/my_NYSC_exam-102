@@ -386,28 +386,13 @@ def quiz():
 @app.route("/generate_quiz", methods=["POST"])
 @login_required
 def generate_quiz():
-    """
-    Frontend (quiz.html) posts FormData with keys:
-      - document (file: pdf/docx/image)
-      - grade
-      - subject
-    Responds with:
-      { "questions": [ { "question": str, "options": [..], "answer": str } ] }
-    """
     try:
         if "document" not in request.files:
-            return jsonify({"error": "No file uploaded (expecting field 'document')"}), 400
+            return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["document"]
         if not file or not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type"}), 400
-
-        # --- File size check (max 5MB) ---
-        file.seek(0, os.SEEK_END)
-        size = file.tell()
-        file.seek(0)
-        if size > 5 * 1024 * 1024:
-            return jsonify({"error": "File too large (max 5MB)"}), 400
 
         grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
@@ -424,8 +409,9 @@ def generate_quiz():
             except Exception:
                 pass
 
-        if not context_text:
-            return jsonify({"error": "Could not extract text from the uploaded file"}), 400
+        if not context_text.strip():
+            logger.warning("⚠️ No text extracted from uploaded file")
+            return jsonify({"error": "Could not extract any text from file"}), 400
 
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "genquiz")
         cached = cache_get(cache_key)
@@ -433,6 +419,12 @@ def generate_quiz():
             return jsonify(cached)
 
         quiz = call_gemini_for_quiz(context_text, subject, grade)
+
+        # ✅ Validate quiz structure
+        if not quiz or "questions" not in quiz or not quiz["questions"]:
+            logger.error("⚠️ Gemini returned invalid quiz data")
+            return jsonify({"error": "AI failed to generate quiz"}), 500
+
         cache_set(cache_key, quiz, 10)
         log_quiz_activity(session["user_email"], "generate_quiz", filename)
         return jsonify(quiz)
@@ -441,48 +433,6 @@ def generate_quiz():
         logger.error(f"/generate_quiz error: {e}")
         return jsonify({"error": "Quiz generation failed"}), 500
 
-# --- Keep your previous /generate_doc_quiz for backwards compatibility ---
-@app.route("/generate_doc_quiz", methods=["POST"])
-@login_required
-def generate_doc_quiz():
-    try:
-        # Accept either 'file' (old client) or 'document' (new client)
-        uploaded = request.files.get("file") or request.files.get("document")
-        if not uploaded:
-            return jsonify({"error": "No file uploaded"}), 400
-        if not allowed_file(uploaded.filename):
-            return jsonify({"error": "Invalid file type"}), 400
-
-        grade = request.form.get("gl") or request.form.get("grade") or "GL10"
-        subject = request.form.get("subject", "General Knowledge")
-
-        filename = secure_filename(uploaded.filename)
-        tmp = tempfile.NamedTemporaryFile(delete=False)
-        uploaded.save(tmp.name)
-
-        try:
-            context_text = extract_text_from_file(tmp.name)
-        finally:
-            try:
-                os.unlink(tmp.name)
-            except Exception:
-                pass
-
-        if not context_text:
-            return jsonify({"error": "File text extraction failed"}), 400
-
-        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "docquiz")
-        cached = cache_get(cache_key)
-        if cached:
-            return jsonify(cached)
-
-        quiz = call_gemini_for_quiz(context_text, subject, grade)
-        cache_set(cache_key, quiz, 10)
-        log_quiz_activity(session["user_email"], "doc_quiz", filename)
-        return jsonify(quiz)
-    except Exception as e:
-        logger.error(f"Doc quiz error: {e}")
-        return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Discussion (template-driven pages) ---
 @app.route("/discussion", methods=["GET", "POST"])
@@ -590,6 +540,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
