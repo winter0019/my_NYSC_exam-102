@@ -336,29 +336,48 @@ def dashboard():
     return render_template("dashboard.html", email=user)
 
 
-# --- Free Trial Quiz (unchanged API) ---
+# --- Free Trial Quiz ---
 @app.route("/free_trial_quiz")
 @login_required
 def free_trial_quiz():
     return render_template("free_trial_quiz.html", email=session["user_email"])
 
+
 @app.route("/generate_free_quiz", methods=["POST"])
 @login_required
 def generate_free_quiz():
+    """
+    Generate a free trial quiz without requiring a document upload.
+    Input (JSON):
+      - grade
+      - subject
+    Output:
+      { "questions": [ { "question": str, "options": [..], "answer": str } ] }
+    """
     try:
         data = request.get_json(force=True, silent=True) or {}
         grade = data.get("gl") or data.get("grade") or "GL10"
         subject = data.get("subject") or "General Knowledge"
 
-        prompt = f"Generate 5 MCQs (A-D) with the correct answer. Subject: {subject}, Grade: {grade}. Output strict JSON with fields: question, options, answer."
-        quiz = call_gemini_for_quiz(prompt, subject, grade)
+        # Keep consistent with generate_quiz: context_text = source, not a system prompt
+        context_text = f"Trial quiz for {subject} at grade {grade}"
+
+        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "freequiz")
+        cached = cache_get(cache_key)
+        if cached:
+            return jsonify(cached)
+
+        quiz = call_gemini_for_quiz(context_text, subject, grade)
+        cache_set(cache_key, quiz, 10)
         log_quiz_activity(session["user_email"], "free_trial", f"GL={grade}, Sub={subject}")
         return jsonify(quiz)
+
     except Exception as e:
         logger.error(f"Free quiz error: {e}")
         return jsonify({"error": "Quiz generation failed"}), 500
 
-# --- Document Upload Quiz (new: /generate_quiz to match quiz.html) ---
+
+# --- Document Upload Quiz ---
 @app.route("/generate_quiz", methods=["POST"])
 @login_required
 def generate_quiz():
@@ -377,6 +396,13 @@ def generate_quiz():
         file = request.files["document"]
         if not file or not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type"}), 400
+
+        # --- File size check (max 5MB) ---
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+        if size > 5 * 1024 * 1024:
+            return jsonify({"error": "File too large (max 5MB)"}), 400
 
         grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
@@ -405,6 +431,7 @@ def generate_quiz():
         cache_set(cache_key, quiz, 10)
         log_quiz_activity(session["user_email"], "generate_quiz", filename)
         return jsonify(quiz)
+
     except Exception as e:
         logger.error(f"/generate_quiz error: {e}")
         return jsonify({"error": "Quiz generation failed"}), 500
@@ -558,6 +585,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
