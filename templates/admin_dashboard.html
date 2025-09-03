@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NYSC Exam Prep - Dashboard</title>
+  <title>NYSC Exam Prep - Admin Dashboard</title>
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
@@ -11,25 +11,41 @@
     <h1 class="text-2xl font-bold mb-6">Admin Dashboard</h1>
     <p id="status" class="mb-4 text-gray-600">Checking access...</p>
 
-    <div id="content" class="hidden">
+    <!-- Dashboard Content -->
+    <div id="content" class="hidden space-y-6">
       <p class="mb-4">Welcome, Admin! 🎉</p>
-      <!-- Put your dashboard stats, charts, and analytics here -->
+
+      <!-- Exam Tools -->
+      <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+        <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
+        <p class="mb-4">Generate quizzes from uploaded documents or try the free trial quiz.</p>
+        <div class="flex gap-4">
+          <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
+          <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+        </div>
+      </section>
+
+      <!-- Placeholder for stats/analytics -->
+      <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+        <h2 class="text-lg font-semibold mb-4">Analytics</h2>
+        <p class="text-gray-600">📊 Stats, reports, and usage charts will appear here.</p>
+      </section>
     </div>
   </div>
 
   <script>
-    const ADMIN_EMAILS = ["your.email@example.com"]; // 🔑 add more admins
+    const ADMIN_EMAILS = ["admin@nysc.gov.ng"]; // 🔑 add more admins here
     const email = localStorage.getItem("userEmail");
 
     const status = document.getElementById("status");
     const content = document.getElementById("content");
 
     if (!email) {
-      window.location.href = "/login.html";
+      window.location.href = "/login";
     } else if (!ADMIN_EMAILS.includes(email)) {
-      window.location.href = "/quiz.html"; // 🚫 not admin
+      window.location.href = "/quiz"; // 🚫 not admin
     } else {
-      status.textContent = `Logged in as Admin: ${email}`;
+      status.textContent = `✅ Logged in as Admin: ${email}`;
       content.classList.remove("hidden");
     }
   </script>
