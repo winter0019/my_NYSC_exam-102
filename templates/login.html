@@ -1,710 +1,167 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Login - NYSC Exam Prep</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-  <style>
-    :root {
-      --primary: #4361ee;
-      --primary-dark: #3a0ca3;
-      --primary-light: #4895ef;
-      --secondary: #7209b7;
-      --success: #4cc9f0;
-      --warning: #f9c74f;
-      --danger: #f72585;
-      --light: #f8f9fa;
-      --dark: #212529;
-      --gray: #6c757d;
-      --border-radius: 12px;
-      --box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
-      --transition: all 0.3s ease;
-    }
-    
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
-    
-    body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-      position: relative;
-      overflow-x: hidden;
-    }
-    
-    /* Animated background elements */
-    .bg-elements {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: -1;
-      overflow: hidden;
-    }
-    
-    .bg-elements div {
-      position: absolute;
-      border-radius: 50%;
-      opacity: 0.1;
-      animation: float 15s infinite linear;
-    }
-    
-    .bg-elements div:nth-child(1) {
-      width: 80px;
-      height: 80px;
-      background: var(--primary);
-      top: 10%;
-      left: 20%;
-      animation-delay: 0s;
-      animation-duration: 25s;
-    }
-    
-    .bg-elements div:nth-child(2) {
-      width: 120px;
-      height: 120px;
-      background: var(--secondary);
-      top: 70%;
-      left: 70%;
-      animation-delay: -5s;
-      animation-duration: 20s;
-    }
-    
-    .bg-elements div:nth-child(3) {
-      width: 60px;
-      height: 60px;
-      background: var(--success);
-      top: 50%;
-      left: 50%;
-      animation-delay: -10s;
-      animation-duration: 30s;
-    }
-    
-    .bg-elements div:nth-child(4) {
-      width: 100px;
-      height: 100px;
-      background: var(--warning);
-      top: 20%;
-      left: 80%;
-      animation-delay: -15s;
-      animation-duration: 35s;
-    }
-    
-    @keyframes float {
-      0% {
-        transform: translateY(0) rotate(0deg);
-      }
-      50% {
-        transform: translateY(-20px) rotate(180deg);
-      }
-      100% {
-        transform: translateY(0) rotate(360deg);
-      }
-    }
-    
-    .container {
-      width: 100%;
-      max-width: 450px;
-      background: rgba(255, 255, 255, 0.95);
-      border-radius: var(--border-radius);
-      box-shadow: var(--box-shadow);
-      overflow: hidden;
-      backdrop-filter: blur(10px);
-      transition: var(--transition);
-    }
-    
-    .container:hover {
-      transform: translateY(-5px);
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
-    }
-    
-    .header {
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: white;
-      padding: 30px;
-      text-align: center;
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .header::before {
-      content: '';
-      position: absolute;
-      top: -50%;
-      left: -50%;
-      width: 200%;
-      height: 200%;
-      background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
-      transform: rotate(30deg);
-    }
-    
-    .header h2 {
-      margin: 0;
-      font-size: 2em;
-      position: relative;
-      z-index: 1;
-    }
-    
-    .header p {
-      margin: 10px 0 0 0;
-      opacity: 0.9;
-      position: relative;
-      z-index: 1;
-    }
-    
-    .form-container {
-      padding: 30px;
-    }
-    
-    .form-group {
-      margin-bottom: 20px;
-      position: relative;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: var(--dark);
-      display: flex;
-      align-items: center;
-    }
-    
-    label i {
-      margin-right: 10px;
-      color: var(--primary);
-    }
-    
-    input[type="email"],
-    input[type="password"] {
-      width: 100%;
-      padding: 15px 15px 15px 45px;
-      border: 2px solid #e9ecef;
-      border-radius: 10px;
-      font-size: 16px;
-      transition: var(--transition);
-    }
-    
-    input[type="email"]:focus,
-    input[type="password"]:focus {
-      outline: none;
-      border-color: var(--primary);
-      box-shadow: 0 0 0 3px rgba(67, 97, 238, 0.2);
-    }
-    
-    .input-icon {
-      position: absolute;
-      left: 15px;
-      top: 42px;
-      color: var(--gray);
-    }
-    
-    .btn {
-      width: 100%;
-      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
-      color: white;
-      padding: 15px;
-      border: none;
-      border-radius: 10px;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: var(--transition);
-      position: relative;
-      overflow: hidden;
-      z-index: 1;
-    }
-    
-    .btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 0%;
-      height: 100%;
-      background: linear-gradient(135deg, var(--primary-dark) 0%, var(--secondary) 100%);
-      transition: var(--transition);
-      z-index: -1;
-    }
-    
-    .btn:hover::before {
-      width: 100%;
-    }
-    
-    .btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(67, 97, 238, 0.4);
-    }
-    
-    .btn:active {
-      transform: translateY(0);
-    }
-    
-    .btn i {
-      margin-right: 8px;
-    }
-    
-    .demo-credentials {
-      background: var(--light);
-      padding: 15px;
-      border-radius: 10px;
-      margin-top: 20px;
-      font-size: 14px;
-      border-left: 4px solid var(--primary);
-    }
-    
-    .demo-credentials h4 {
-      margin-bottom: 10px;
-      color: var(--dark);
-      display: flex;
-      align-items: center;
-    }
-    
-    .demo-credentials h4 i {
-      margin-right: 8px;
-      color: var(--primary);
-    }
-    
-    .demo-credentials p {
-      margin: 5px 0;
-      color: #666;
-    }
-    
-    .flash-messages {
-      margin-bottom: 20px;
-    }
-    
-    .flash-message {
-      padding: 12px 15px;
-      border-radius: 8px;
-      margin-bottom: 10px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      animation: slideIn 0.5s ease;
-    }
-    
-    @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateY(-10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-    
-    .flash-error {
-      background: #ffebee;
-      color: #c62828;
-      border-left: 4px solid #c62828;
-    }
-    
-    .flash-success {
-      background: #e8f5e8;
-      color: #2e7d32;
-      border-left: 4px solid #2e7d32;
-    }
-    
-    .flash-info {
-      background: #e3f2fd;
-      color: #1565c0;
-      border-left: 4px solid #1565c0;
-    }
-    
-    .flash-message i {
-      margin-right: 10px;
-    }
-    
-    .footer {
-      text-align: center;
-      padding: 20px;
-      color: #666;
-      font-size: 14px;
-      border-top: 1px solid #eee;
-    }
-    
-    .footer a {
-      color: var(--primary);
-      text-decoration: none;
-      transition: var(--transition);
-    }
-    
-    .footer a:hover {
-      color: var(--primary-dark);
-      text-decoration: underline;
-    }
-    
-    .password-toggle {
-      position: relative;
-    }
-    
-    .toggle-password {
-      position: absolute;
-      right: 15px;
-      top: 42px;
-      background: none;
-      border: none;
-      color: var(--gray);
-      cursor: pointer;
-      transition: var(--transition);
-    }
-    
-    .toggle-password:hover {
-      color: var(--primary);
-    }
-    
-    .loading {
-      display: none;
-      text-align: center;
-      padding: 15px;
-      background: rgba(67, 97, 238, 0.1);
-      border-radius: 10px;
-      margin-top: 15px;
-      animation: fadeIn 0.5s ease;
-    }
-    
-    @keyframes fadeIn {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-    
-    .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid var(--primary);
-      border-radius: 50%;
-      width: 20px;
-      height: 20px;
-      animation: spin 1s linear infinite;
-      margin: 0 auto 10px;
-    }
-    
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-    
-    .remember-forgot {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      font-size: 14px;
-    }
-    
-    .remember {
-      display: flex;
-      align-items: center;
-    }
-    
-    .remember input {
-      margin-right: 8px;
-    }
-    
-    .forgot-password {
-      color: var(--primary);
-      text-decoration: none;
-      transition: var(--transition);
-    }
-    
-    .forgot-password:hover {
-      color: var(--primary-dark);
-      text-decoration: underline;
-    }
-    
-    @media (max-width: 480px) {
-      .container {
-        margin: 10px;
-      }
-      
-      .form-container {
-        padding: 20px;
-      }
-      
-      .header {
-        padding: 20px;
-      }
-      
-      .header h2 {
-        font-size: 1.7em;
-      }
-      
-      .remember-forgot {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-      
-      .forgot-password {
-        margin-top: 10px;
-      }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYSC Exam Prep</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6;
+        }
+    </style>
 </head>
-<body>
-  <!-- Animated background elements -->
-  <div class="bg-elements">
-    <div></div>
-    <div></div>
-    <div></div>
-    <div></div>
-  </div>
+<body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden md:max-w-xl">
+        <div class="md:flex">
+            <div class="p-8 w-full">
+                <div class="flex justify-between items-center mb-6">
+                    <h1 class="text-2xl font-bold text-gray-800">NYSC Exam Prep</h1>
+                    <div class="p-2 bg-blue-100 text-blue-600 rounded-full">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                </div>
+                <h2 class="text-xl font-semibold text-gray-700 mb-2">Sign in to your account</h2>
+                <p class="text-sm text-gray-500 mb-6">Welcome back! Please enter your credentials to continue.</p>
 
-  <div class="container">
-    <div class="header">
-      <h2><i class="fas fa-graduation-cap"></i> NYSC Exam Prep</h2>
-      <p>Sign in to your account</p>
+                <div id="error-message" class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 hidden" role="alert">
+                    <span class="block sm:inline"></span>
+                </div>
+
+                <form id="login-form" class="space-y-6">
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
+                        <input type="email" id="email" name="email" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="your.email@example.com" required>
+                    </div>
+
+                    <div>
+                        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                        <input type="password" id="password" name="password" class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm" placeholder="********" required>
+                    </div>
+                    
+                    <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        Sign In
+                    </button>
+                </form>
+
+                <div class="mt-6 text-center text-sm text-gray-500">
+                    <div class="border-t border-gray-200 mt-6 pt-6">
+                        <p id="user-info" class="text-xs text-gray-400"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    
-    <div class="form-container">
-      <!-- Flash Messages -->
-      <div class="flash-messages" id="flashMessages">
-        <div class="flash-message flash-info" id="initialMessage">
-          <i class="fas fa-info-circle"></i>
-          Welcome back! Please enter your credentials to continue.
-        </div>
-      </div>
 
-      <form method="POST" action="#" id="loginForm">
-        <input type="hidden" name="return_to" value="">
-        
-        <div class="form-group">
-          <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
-          <i class="fas fa-envelope input-icon"></i>
-          <input type="email" id="email" name="email" required placeholder="Enter your email address">
-        </div>
-        
-        <div class="form-group password-toggle">
-          <label for="password"><i class="fas fa-lock"></i> Password</label>
-          <i class="fas fa-lock input-icon"></i>
-          <input type="password" id="password" name="password" required placeholder="Enter your password">
-          <button type="button" class="toggle-password" onclick="togglePassword()">
-            <i class="fas fa-eye" id="passwordToggleIcon"></i>
-          </button>
-        </div>
-        
-        <div class="remember-forgot">
-          <div class="remember">
-            <input type="checkbox" id="remember" name="remember">
-            <label for="remember">Remember me</label>
-          </div>
-          <a href="#" class="forgot-password">Forgot Password?</a>
-        </div>
-        
-        <button type="submit" class="btn" id="loginButton">
-          <i class="fas fa-sign-in-alt"></i> Sign In
-        </button>
-        
-        <div class="loading" id="loading">
-          <div class="spinner"></div>
-          <p>Signing in...</p>
-        </div>
-      </form>
-      
-      <div class="demo-credentials">
-        <h4><i class="fas fa-info-circle"></i> Demo Info</h4>
-        <p id="userIdDisplay">User ID: </p>
-        <p>This app uses a real-time database to manage user access.</p>
-      </div>
-    </div>
-    
-    <div class="footer">
-      <p>Need help? <a href="mailto:admin@nyscexamprep.com">Contact Administrator</a></p>
-      <p>&copy; 2024 NYSC Exam Prep. All rights reserved.</p>
-    </div>
-  </div>
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-  <script type="module">
-    // Firebase SDK imports
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithEmailAndPassword, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, collection, query, where, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        // Global variables provided by the environment
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-    // Set Firestore log level to debug
-    setLogLevel('debug');
-    
-    let app, auth, db;
-    let userId = null;
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-    
-    const loginForm = document.getElementById('loginForm');
-    const loginButton = document.getElementById('loginButton');
-    const loading = document.getElementById('loading');
-    const flashMessages = document.getElementById('flashMessages');
+        let db, auth;
+        const errorMessageDiv = document.getElementById('error-message');
+        const errorSpan = errorMessageDiv.querySelector('span');
 
-    /**
-     * Shows a flash message with a specific class and icon.
-     * @param {string} message The message to display.
-     * @param {string} type The type of message (success, error, info).
-     */
-    function showFlashMessage(message, type) {
-      // Clear all existing messages except the initial info message
-      const messagesToClear = flashMessages.querySelectorAll('.flash-message:not(#initialMessage)');
-      messagesToClear.forEach(msg => msg.remove());
+        function showError(message) {
+            errorSpan.textContent = message;
+            errorMessageDiv.classList.remove('hidden');
+        }
 
-      const messageDiv = document.createElement('div');
-      messageDiv.className = `flash-message flash-${type}`;
-      let iconClass = '';
-      switch (type) {
-        case 'success':
-          iconClass = 'fa-check-circle';
-          break;
-        case 'error':
-          iconClass = 'fa-exclamation-circle';
-          break;
-        case 'info':
-          iconClass = 'fa-info-circle';
-          break;
-      }
-      messageDiv.innerHTML = `<i class="fas ${iconClass}"></i> ${message}`;
-      flashMessages.appendChild(messageDiv);
-      messageDiv.scrollIntoView({ behavior: 'smooth' });
-    }
+        function hideError() {
+            errorMessageDiv.classList.add('hidden');
+        }
 
-    /**
-     * Toggles the password field visibility.
-     */
-    window.togglePassword = function() {
-      const passwordInput = document.getElementById('password');
-      const toggleIcon = document.getElementById('passwordToggleIcon');
-      
-      if (passwordInput.type === 'password') {
-        passwordInput.type = 'text';
-        toggleIcon.classList.remove('fa-eye');
-        toggleIcon.classList.add('fa-eye-slash');
-      } else {
-        passwordInput.type = 'password';
-        toggleIcon.classList.remove('fa-eye-slash');
-        toggleIcon.classList.add('fa-eye');
-      }
-    };
-
-    /**
-     * Initializes Firebase and handles the authentication state.
-     */
-    async function initializeFirebase() {
-      try {
-        if (Object.keys(firebaseConfig).length > 0) {
-          app = initializeApp(firebaseConfig);
-          auth = getAuth(app);
-          db = getFirestore(app);
-
-          // Handle initial custom token sign-in
-          const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-          if (initialAuthToken) {
-            await signInWithCustomToken(auth, initialAuthToken);
-          } else {
-            await signInAnonymously(auth);
-          }
-
-          auth.onAuthStateChanged((user) => {
-            if (user) {
-              userId = user.uid;
-              document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
-              // For a login page, we don't want to auto-redirect after the initial token login.
-              // We just display the user ID to show that auth is working.
-              console.log("Firebase initialized and authenticated. User ID:", userId);
-            } else {
-              userId = null;
-              document.getElementById('userIdDisplay').textContent = `User ID: Not authenticated`;
-              console.log("Firebase initialized. User is not authenticated.");
+        if (firebaseConfig) {
+            try {
+                const app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+            } catch (error) {
+                console.error("Firebase initialization failed:", error);
+                showError("Firebase initialization failed. Please try again later.");
             }
-          });
         } else {
-          showFlashMessage('Firebase configuration is missing. The app will not function correctly.', 'error');
-          console.error('Firebase configuration is missing. Cannot initialize.');
+            console.error("Firebase config is missing.");
+            showError("Application configuration error. Please contact support.");
         }
-      } catch (error) {
-        showFlashMessage(`Failed to initialize Firebase: ${error.message}`, 'error');
-        console.error('Firebase initialization error:', error);
-      }
-    }
-    
-    /**
-     * Handles the login form submission.
-     * @param {Event} e The submit event.
-     */
-    loginForm.addEventListener('submit', async function(e) {
-      e.preventDefault();
-      
-      // Clear previous error messages
-      const errorMessages = flashMessages.querySelectorAll('.flash-error');
-      errorMessages.forEach(msg => msg.remove());
-      
-      loginButton.style.display = 'none';
-      loading.style.display = 'block';
 
-      const email = document.getElementById('email').value.toLowerCase();
-      const password = document.getElementById('password').value;
+        // Handle initial authentication state
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                console.log("User is authenticated:", user.uid);
+                // Save user info to Firestore if this is a new sign-in
+                const userRef = doc(db, `/artifacts/${appId}/users/${user.uid}/user_data/profile`);
+                await setDoc(userRef, {
+                    email: user.email,
+                    lastLogin: new Date().toISOString()
+                }, { merge: true });
+                window.location.href = '/dashboard';
+            } else {
+                console.log("User is not authenticated.");
+                // Use a custom token if available, otherwise sign in anonymously
+                if (initialAuthToken) {
+                    try {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                        console.log("Signed in with custom token.");
+                    } catch (error) {
+                        console.error("Error signing in with custom token:", error);
+                        // Fallback to anonymous sign-in if custom token fails
+                        await signInAnonymously(auth);
+                        console.log("Signed in anonymously.");
+                    }
+                } else {
+                    await signInAnonymously(auth);
+                    console.log("Signed in anonymously.");
+                }
+            }
+        });
 
-      try {
-        // Step 1: Attempt to sign in with email and password
-        const userCredential = await signInWithEmailAndPassword(auth, email, password);
-        const user = userCredential.user;
+        // Handle form submission
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            hideError();
 
-        // Step 2: Check if the user's email is in the Firestore whitelist
-        const publicDataPath = `/artifacts/${appId}/public/data/whitelisted_emails`;
-        const q = query(collection(db, publicDataPath), where("email", "==", email));
-        const querySnapshot = await getDocs(q);
+            const email = e.target.email.value;
+            const password = e.target.password.value;
 
-        if (querySnapshot.empty) {
-          // If no matching document is found, the user is not whitelisted.
-          // Sign out the user immediately for security.
-          await auth.signOut();
-          showFlashMessage('Access denied. Your email is not in the allowed list. Please contact the administrator.', 'error');
-        } else {
-          // User is authenticated and whitelisted.
-          showFlashMessage('Login successful! Redirecting to dashboard...', 'success');
-          // Simulate redirection to a dashboard page
-          setTimeout(() => {
-            // Replace with actual redirection in a real app
-            window.location.href = '#dashboard';
-          }, 1500);
-        }
-      } catch (error) {
-        let errorMessage = 'An unexpected error occurred. Please try again.';
-        switch (error.code) {
-          case 'auth/user-not-found':
-          case 'auth/wrong-password':
-          case 'auth/invalid-credential':
-            errorMessage = 'Invalid email or password. Please try again.';
-            break;
-          case 'auth/invalid-email':
-            errorMessage = 'The email address is not valid. Please try again.';
-            break;
-          case 'auth/too-many-requests':
-            errorMessage = 'Too many failed login attempts. Please try again later.';
-            break;
-          default:
-            console.error("Login error:", error.code, error.message);
-            break;
-        }
-        showFlashMessage(errorMessage, 'error');
-      } finally {
-        // Reset the UI state regardless of success or failure
-        loginButton.style.display = 'block';
-        loading.style.display = 'none';
-      }
-    });
+            if (!email || !password) {
+                showError("Please enter both email and password.");
+                return;
+            }
 
-    // Auto-focus on email field and handle session messages
-    document.addEventListener('DOMContentLoaded', function() {
-      document.getElementById('email').focus();
-      const urlParams = new URLSearchParams(window.location.search);
-      if (urlParams.get('session_expired')) {
-        showFlashMessage('Your session has expired. Please login again.', 'info');
-      }
-      initializeFirebase();
-    });
-  </script>
+            try {
+                await signInWithEmailAndPassword(auth, email, password);
+                // Redirection will be handled by onAuthStateChanged listener
+            } catch (error) {
+                console.error("Login failed:", error);
+                switch (error.code) {
+                    case 'auth/invalid-email':
+                        showError("The email address is not valid.");
+                        break;
+                    case 'auth/user-disabled':
+                        showError("This account has been disabled.");
+                        break;
+                    case 'auth/user-not-found':
+                    case 'auth/wrong-password':
+                        showError("Invalid email or password.");
+                        break;
+                    default:
+                        showError("An unexpected error occurred. Please try again.");
+                }
+            }
+        });
+    </script>
 </body>
 </html>
