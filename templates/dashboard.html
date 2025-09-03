@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYSC Exam Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <!-- Using a slightly newer version of Font Awesome for icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -400,6 +401,7 @@
                 </div>
             </div>
             <div id="errorMessage" class="error-message" style="display:none;"></div>
+            <div id="successMessage" class="success-message" style="display:none;"></div>
         </div>
 
         <div class="card">
@@ -445,10 +447,12 @@
     </div>
 
     <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, serverTimestamp, orderBy, getDocs } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+        // Updated Firebase SDK versions to 11.6.1 as per best practices.
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        // Switched to addDoc for adding new documents.
+        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Set Firebase logging level to debug for detailed logs
         setLogLevel('debug');
@@ -524,6 +528,15 @@
             }, 5000);
         }
 
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
+
         function renderQuiz(data) {
             const quizContent = document.getElementById("quizContent");
             let html = '<div class="quiz-container">';
@@ -565,16 +578,20 @@
 
                 // Subscribe to real-time updates for quiz history
                 const userQuizHistoryRef = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
-                const q = query(userQuizHistoryRef, orderBy("timestamp", "desc"));
-
-                onSnapshot(q, (snapshot) => {
+                
+                // Firestore no longer supports orderBy on un-indexed collections by default.
+                // Fetch all docs and sort them in memory.
+                onSnapshot(userQuizHistoryRef, (snapshot) => {
                     const activityList = document.getElementById('activityList');
                     if (snapshot.empty) {
                         activityList.innerHTML = "<p>No activity yet. Generate your first quiz to get started!</p>";
                     } else {
+                        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        // Sort the documents by timestamp in descending order in memory
+                        docs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+
                         activityList.innerHTML = "";
-                        snapshot.forEach(doc => {
-                            const data = doc.data();
+                        docs.forEach(data => {
                             const li = document.createElement('li');
                             li.className = 'activity-item';
                             const date = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : 'N/A';
@@ -614,13 +631,15 @@
             }
 
             try {
+                // Using addDoc to automatically generate a new document ID
                 const quizHistoryRef = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
-                await setDoc(doc(quizHistoryRef), {
+                await addDoc(quizHistoryRef, {
                     score: score,
                     total: total,
                     subject: subject,
                     timestamp: serverTimestamp()
                 });
+                showSuccess("Your quiz result has been saved!");
             } catch (error) {
                 console.error("Error writing document to Firestore:", error);
                 showError("Failed to save quiz result. Check console for details.");
@@ -632,7 +651,7 @@
             document.getElementById("quizForm").addEventListener("submit", async function(e) {
                 e.preventDefault();
 
-                // For now, we'll use the sample data. In a real app, this would be a fetch call to a backend.
+                // For now, this is a simulated action. In a real app, this would be a fetch call.
                 setLoading(true);
                 const subject = this.subject.value;
                 const file = this.file.files[0];
@@ -698,6 +717,9 @@
             document.getElementById('logoutBtn').addEventListener('click', async () => {
                 try {
                     await signOut(auth);
+                    // Clear user info on logout
+                    document.getElementById('userEmail').textContent = 'Loading...';
+                    document.getElementById('userId').textContent = 'Loading...';
                     showModal("You have been logged out successfully.");
                 } catch (error) {
                     console.error("Error logging out:", error);
