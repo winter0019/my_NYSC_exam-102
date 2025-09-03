@@ -1,4 +1,6 @@
 import os
+import re
+import json
 import uuid
 import hashlib
 from datetime import datetime, timedelta
@@ -21,27 +23,24 @@ import tempfile
 import docx
 import PyPDF2
 import pytesseract
-import fitz  # PyMuPDF
 from PIL import Image
 
-# Firebase
+# Firebase (admin SDK – optional, used when FIREBASE_SERVICE_ACCOUNT is present)
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 
 # --- Load Environment ---
 load_dotenv()
 
-# Configure Google Gemini
-genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+# --- Configure Google Gemini ---
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+if not GEMINI_API_KEY:
+    raise RuntimeError("GEMINI_API_KEY is not set")
+genai.configure(api_key=GEMINI_API_KEY)
 
 # --- Flask App Setup ---
-app = Flask(
-    __name__,
-    template_folder="templates",
-    static_folder="static"
-)
+app = Flask(__name__, template_folder="templates", static_folder="static")
 CORS(app)
-
 app.secret_key = os.getenv("SECRET_KEY", "super-secret-key")
 
 # --- Rate Limiter ---
@@ -50,16 +49,19 @@ limiter = Limiter(get_remote_address, app=app, default_limits=["100 per day", "2
 # --- Logger ---
 logger.add("logs/app_{time}.log", rotation="1 day", level="INFO")
 
-# --- Firebase Setup ---
+# --- Firebase Setup (optional) ---
 db = None
 try:
     firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
     if firebase_json:
-        cred_dict = eval(firebase_json) if isinstance(firebase_json, str) else firebase_json
+        # NOTE: prefer json.loads over eval for safety
+        cred_dict = json.loads(firebase_json) if isinstance(firebase_json, str) else firebase_json
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
         db = firestore.client()
         logger.info("Firebase initialized successfully")
+    else:
+        logger.info("FIREBASE_SERVICE_ACCOUNT not set; using in-memory room storage only.")
 except Exception as e:
     logger.warning(f"Firebase not initialized: {e}")
 
@@ -92,12 +94,9 @@ ALLOWED_USERS = {
     "winter19@gmail.com",
     "adedoyinfehintola@gmail.com",
 }
-# Normalize emails to lowercase
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
-# The original ALLOWED_EMAILS is no longer used, but if needed, it could be combined with the new list.
-# ALLOWED_EMAILS = {"admin@nysc.gov.ng", "staff@nysc.gov.ng"}
 
-rooms = {}  # in-memory fallback
+rooms = {}  # in-memory fallback when Firestore isn't available
 cache = {}
 
 # --- Helpers ---
@@ -114,14 +113,14 @@ def extract_text_from_file(file_path):
                 for page in reader.pages:
                     text += page.extract_text() or ""
         elif ext == "docx":
-            doc = docx.Document(file_path)
-            text = "\n".join([p.text for p in doc.paragraphs])
+            document = docx.Document(file_path)
+            text = "\n".join(p.text for p in document.paragraphs)
         elif ext in {"png", "jpg", "jpeg"}:
             img = Image.open(file_path)
             text = pytesseract.image_to_string(img)
     except Exception as e:
         logger.error(f"File extraction failed: {e}")
-    return text.strip()
+    return (text or "").strip()
 
 def generate_cache_key(base, ttl_minutes, prefix=""):
     h = hashlib.md5(base.encode()).hexdigest()
@@ -158,25 +157,144 @@ def cleanup_expired_rooms():
 def before_request():
     cleanup_expired_rooms()
 
+# --- Robust Gemini quiz parsing ---
+def _extract_first_json_block(text: str):
+    """
+    Try to pull the first JSON block from a possibly-markdown response.
+    """
+    if not text:
+        return None
+    # ```json ... ``` fenced
+    m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
+    if m:
+        return m.group(1)
+    # Any {...} top-level looking JSON
+    m = re.search(r"(\{(?:.|\n)*\})", text)
+    if m:
+        return m.group(1)
+    return None
+
+def quiz_to_uniform_schema(quiz_obj):
+    """
+    Normalize to: { "questions": [ { "question": str, "options": [str, str, str, str], "answer": str } ] }
+    """
+    out = {"questions": []}
+    items = quiz_obj.get("questions") or quiz_obj.get("quiz") or []
+    for q in items:
+        question = q.get("question") or q.get("q") or ""
+        options = q.get("options") or q.get("choices") or []
+        answer = q.get("answer") or q.get("correct") or q.get("correct_answer") or ""
+        if isinstance(options, dict):
+            # convert {"A": "...", "B": "..."} to list in A-D order if possible
+            keys = ["A", "B", "C", "D"]
+            options = [options.get(k) for k in keys if options.get(k)]
+        # filter falsy
+        options = [o for o in options if o]
+        if question and options:
+            out["questions"].append({"question": question, "options": options, "answer": answer})
+    return out
+
+def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
+    """
+    Ask Gemini to return strict JSON for MCQs. Falls back to best-effort parse.
+    """
+    system_prompt = f"""
+You are a question generator for NYSC exam prep.
+Return STRICT JSON ONLY with this shape:
+
+{{
+  "questions": [
+    {{
+      "question": "string",
+      "options": ["A", "B", "C", "D"],
+      "answer": "the correct option text EXACTLY as shown in options"
+    }}
+  ]
+}}
+
+Rules:
+- 5 questions.
+- 4 options each.
+- Options should be concise.
+- Make questions based ONLY on the provided context (if weak, fall back to subject knowledge for that grade).
+- No prose, no explanation, no markdown, ONLY pure JSON.
+Context (trimmed):
+{context_text[:1500]}
+
+Subject: {subject}
+Grade: {grade}
+"""
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(
+        system_prompt,
+        safety_settings={
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+    )
+
+    raw = (response.text or "").strip()
+    # Try direct JSON parse
+    try:
+        data = json.loads(raw)
+        return quiz_to_uniform_schema(data)
+    except Exception:
+        pass
+
+    # Try to pull a JSON block from markdown
+    jb = _extract_first_json_block(raw)
+    if jb:
+        try:
+            data = json.loads(jb)
+            return quiz_to_uniform_schema(data)
+        except Exception:
+            pass
+
+    # Last resort: naive parser for A-D blocks (kept minimal)
+    questions = []
+    blocks = re.split(r"\n\s*\n", raw)
+    for b in blocks:
+        lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
+        if len(lines) >= 5:
+            q = lines[0]
+            opts = []
+            for ln in lines[1:5]:
+                m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
+                opts.append(m.group(1) if m else ln)
+            # Best effort; no guaranteed answer
+            questions.append({"question": q, "options": opts, "answer": ""})
+    return {"questions": questions[:5]}
+
 # --- Routes ---
 @app.route("/")
 def home():
     return redirect(url_for("login"))
+
+@app.route("/health")
+def health():
+    return jsonify({"ok": True, "time": datetime.utcnow().isoformat() + "Z"})
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
         email = request.form.get("email", "").lower()
         password = request.form.get("password", "")
-        # Use the new ALLOWED_USERS list for login verification
         if email not in ALLOWED_USERS:
             return render_template("login.html", error="Unauthorized email")
 
         try:
+            # Firebase Identity REST sign-in
+            api_key = os.getenv("FIREBASE_API_KEY")
+            if not api_key:
+                logger.error("FIREBASE_API_KEY not set")
+                return render_template("login.html", error="Auth service unavailable")
             resp = requests.post(
                 "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
-                params={"key": os.getenv("FIREBASE_API_KEY")},
+                params={"key": api_key},
                 json={"email": email, "password": password, "returnSecureToken": True},
+                timeout=15,
             )
             if resp.status_code == 200:
                 session["user_email"] = email
@@ -196,12 +314,11 @@ def logout():
 @login_required
 def dashboard():
     user = session["user_email"]
-    # You might want to update this to check against ALLOWED_USERS if "admin" is in that list
     if user == "admin@nysc.gov.ng":
         return render_template("admin_dashboard.html", email=user)
     return render_template("dashboard.html", email=user)
 
-# --- Free Trial Quiz ---
+# --- Free Trial Quiz (unchanged API) ---
 @app.route("/free_trial_quiz")
 @login_required
 def free_trial_quiz():
@@ -211,92 +328,113 @@ def free_trial_quiz():
 @login_required
 def generate_free_quiz():
     try:
-        data = request.get_json()
-        grade = data.get("gl")
-        subject = data.get("subject")
+        data = request.get_json(force=True, silent=True) or {}
+        grade = data.get("gl") or data.get("grade") or "GL10"
+        subject = data.get("subject") or "General Knowledge"
 
-        prompt = f"Generate 5 multiple choice questions with 4 options each (A-D), mark correct answers. Topic: {subject}, Level: {grade}."
-
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(
-            prompt,
-            safety_settings={HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE}
-        )
-
-        quiz_text = response.text
-        questions = []
-        for block in quiz_text.split("\n\n"):
-            lines = block.strip().split("\n")
-            if len(lines) >= 3:
-                q = {"question": lines[0], "options": lines[1:], "answer": lines[-1]}
-                questions.append(q)
-
-        discussions = [f"What is the impact of {subject} on daily NYSC operations?"]
-
+        prompt = f"Generate 5 MCQs (A-D) with the correct answer. Subject: {subject}, Grade: {grade}. Output strict JSON with fields: question, options, answer."
+        quiz = call_gemini_for_quiz(prompt, subject, grade)
         log_quiz_activity(session["user_email"], "free_trial", f"GL={grade}, Sub={subject}")
-        return jsonify({"quiz": questions, "discussions": [{"q": d} for d in discussions]})
+        return jsonify(quiz)
     except Exception as e:
         logger.error(f"Free quiz error: {e}")
-        return jsonify({"error": "Quiz generation failed"})
+        return jsonify({"error": "Quiz generation failed"}), 500
 
-# --- Document Upload Quiz ---
-@app.route("/generate_doc_quiz", methods=["POST"])
+# --- Document Upload Quiz (new: /generate_quiz to match quiz.html) ---
+@app.route("/generate_quiz", methods=["POST"])
 @login_required
-def generate_doc_quiz():
+def generate_quiz():
+    """
+    Frontend (quiz.html) posts FormData with keys:
+      - document (file: pdf/docx/image)
+      - grade
+      - subject
+    Responds with:
+      { "questions": [ { "question": str, "options": [..], "answer": str } ] }
+    """
     try:
-        if "file" not in request.files:
-            return jsonify({"error": "No file uploaded"}), 400
-        file = request.files["file"]
+        if "document" not in request.files:
+            return jsonify({"error": "No file uploaded (expecting field 'document')"}), 400
+
+        file = request.files["document"]
         if not file or not allowed_file(file.filename):
             return jsonify({"error": "Invalid file type"}), 400
 
-        grade = request.form.get("gl", "GL10")
+        grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
 
         filename = secure_filename(file.filename)
-        temp = tempfile.NamedTemporaryFile(delete=False)
-        file.save(temp.name)
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        file.save(tmp.name)
 
-        text_main = extract_text_from_file(temp.name)
-        text_past = request.form.get("past_questions", "")
-        os.unlink(temp.name)
+        try:
+            context_text = extract_text_from_file(tmp.name)
+        finally:
+            try:
+                os.unlink(tmp.name)
+            except Exception:
+                pass
 
-        if not text_main.strip():
-            return jsonify({"error": "File text extraction failed"}), 400
+        if not context_text:
+            return jsonify({"error": "Could not extract text from the uploaded file"}), 400
 
-        cache_key = generate_cache_key(f"{text_main}_{text_past}_{grade}_{subject}", 5, "docquiz")
+        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "genquiz")
         cached = cache_get(cache_key)
         if cached:
             return jsonify(cached)
 
-        prompt = f"""
-        Create 5 multiple-choice questions (A-D) with correct answers.
-        Base them on this text:
-        {text_main[:1500]}
-        Past Qs: {text_past}
-        Context: Subject {subject}, Grade {grade}.
-        """
+        quiz = call_gemini_for_quiz(context_text, subject, grade)
+        cache_set(cache_key, quiz, 10)
+        log_quiz_activity(session["user_email"], "generate_quiz", filename)
+        return jsonify(quiz)
+    except Exception as e:
+        logger.error(f"/generate_quiz error: {e}")
+        return jsonify({"error": "Quiz generation failed"}), 500
 
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        quiz_text = response.text
+# --- Keep your previous /generate_doc_quiz for backwards compatibility ---
+@app.route("/generate_doc_quiz", methods=["POST"])
+@login_required
+def generate_doc_quiz():
+    try:
+        # Accept either 'file' (old client) or 'document' (new client)
+        uploaded = request.files.get("file") or request.files.get("document")
+        if not uploaded:
+            return jsonify({"error": "No file uploaded"}), 400
+        if not allowed_file(uploaded.filename):
+            return jsonify({"error": "Invalid file type"}), 400
 
-        questions = []
-        for block in quiz_text.split("\n\n"):
-            lines = block.strip().split("\n")
-            if len(lines) >= 3:
-                q = {"question": lines[0], "options": lines[1:], "answer": lines[-1]}
-                questions.append(q)
+        grade = request.form.get("gl") or request.form.get("grade") or "GL10"
+        subject = request.form.get("subject", "General Knowledge")
 
-        result = {"quiz": questions, "discussions": [{"q": f"Debate implications of {subject}"}]}
-        cache_set(cache_key, result, 5)
+        filename = secure_filename(uploaded.filename)
+        tmp = tempfile.NamedTemporaryFile(delete=False)
+        uploaded.save(tmp.name)
+
+        try:
+            context_text = extract_text_from_file(tmp.name)
+        finally:
+            try:
+                os.unlink(tmp.name)
+            except Exception:
+                pass
+
+        if not context_text:
+            return jsonify({"error": "File text extraction failed"}), 400
+
+        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "docquiz")
+        cached = cache_get(cache_key)
+        if cached:
+            return jsonify(cached)
+
+        quiz = call_gemini_for_quiz(context_text, subject, grade)
+        cache_set(cache_key, quiz, 10)
         log_quiz_activity(session["user_email"], "doc_quiz", filename)
-        return jsonify(result)
+        return jsonify(quiz)
     except Exception as e:
         logger.error(f"Doc quiz error: {e}")
-        return jsonify({"error": "Quiz generation failed"})
+        return jsonify({"error": "Quiz generation failed"}), 500
 
-# --- Discussion Rooms ---
+# --- Discussion (template-driven pages) ---
 @app.route("/discussion", methods=["GET", "POST"])
 @login_required
 def discussion_index():
@@ -316,7 +454,7 @@ def join_discussion(room_id):
 @app.route("/create_room", methods=["POST"])
 @login_required
 def create_room():
-    data = request.get_json()
+    data = request.get_json(force=True, silent=True) or {}
     question = data.get("question", "General topic")
     room_id = str(uuid.uuid4())
     room_data = {
@@ -336,7 +474,7 @@ def create_room():
 @login_required
 def handle_messages(room_id):
     if request.method == "POST":
-        data = request.get_json()
+        data = request.get_json(force=True, silent=True) or {}
         message = {"user": session["user_email"], "text": data.get("text", ""), "time": datetime.now()}
         if db:
             db.collection("discussion_rooms").document(room_id).update({
@@ -384,7 +522,7 @@ def summarize_room(room_id):
 
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
-        summary = response.text.strip()
+        summary = (response.text or "").strip()
 
         if db:
             db.collection("discussion_rooms").document(room_id).update({
@@ -401,4 +539,4 @@ def summarize_room(room_id):
 
 # --- Run ---
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000)
+    app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
