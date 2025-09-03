@@ -3,132 +3,71 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NYSC Exam Prep</title>
+  <title>NYSC Exam Prep - Login</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: #f3f4f6;
-    }
-  </style>
 </head>
-<body class="flex items-center justify-center min-h-screen bg-gray-100 p-4">
-  <div class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden md:max-w-xl">
-    <div class="md:flex">
-      <div class="p-8 w-full">
-        <div class="flex justify-between items-center mb-6">
-          <h1 class="text-2xl font-bold text-gray-800">NYSC Exam Prep</h1>
-          <div class="p-2 bg-blue-100 text-blue-600 rounded-full">
-            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
-            </svg>
-          </div>
-        </div>
-        <h2 class="text-xl font-semibold text-gray-700 mb-2">Sign in to your account</h2>
-        <p class="text-sm text-gray-500 mb-6">Welcome back! Please enter your credentials to continue.</p>
+<body class="flex items-center justify-center min-h-screen bg-gray-100">
+  <div class="w-full max-w-md bg-white p-8 rounded-xl shadow-lg">
+    <h1 class="text-2xl font-bold text-center mb-6">NYSC Exam Prep</h1>
 
-        <div id="error-message"
-          class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md mb-4 hidden"
-          role="alert">
-          <span class="block sm:inline"></span>
-        </div>
+    <div id="error-message" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4"></div>
 
-        <form id="login-form" class="space-y-6">
-          <div>
-            <label for="email" class="block text-sm font-medium text-gray-700">Email Address</label>
-            <input type="email" id="email" name="email"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm
-                     focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="your.email@example.com" required>
-          </div>
-
-          <div>
-            <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-            <input type="password" id="password" name="password"
-              class="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm
-                     focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-              placeholder="********" required>
-          </div>
-
-          <button type="submit"
-            class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm
-                   text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none
-                   focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-            Sign In
-          </button>
-        </form>
-
-        <div class="mt-6 text-center text-sm text-gray-500">
-          <div class="border-t border-gray-200 mt-6 pt-6">
-            <p id="user-info" class="text-xs text-gray-400"></p>
-          </div>
-        </div>
+    <form id="login-form" class="space-y-6">
+      <div>
+        <label for="email" class="block text-sm font-medium text-gray-700">Email</label>
+        <input type="email" id="email" name="email" required
+               class="mt-1 block w-full border rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500">
       </div>
-    </div>
+      <div>
+        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+        <input type="password" id="password" name="password" required
+               class="mt-1 block w-full border rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500">
+      </div>
+      <button type="submit"
+              class="w-full py-2 px-4 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700">
+        Sign In
+      </button>
+    </form>
   </div>
 
-  <!-- Import Firebase (modular v10) -->
-  <script type="module">
-    import { auth, signInWithEmailAndPassword, onAuthStateChanged } from "./static/js/firebase.js";
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+  <script>
+    // --- Firebase config injected from server ---
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
 
-    const errorMessageDiv = document.getElementById('error-message');
-    const errorSpan = errorMessageDiv.querySelector('span');
-
-    function showError(message) {
-      errorSpan.textContent = message;
-      errorMessageDiv.classList.remove('hidden');
+    if (firebaseConfig) {
+      firebase.initializeApp(firebaseConfig);
     }
 
-    function hideError() {
-      errorMessageDiv.classList.add('hidden');
+    const auth = firebase.auth();
+    const ADMIN_EMAILS = ["your.email@example.com"]; // 🔑 add more if needed
+
+    const form = document.getElementById("login-form");
+    const errorBox = document.getElementById("error-message");
+
+    function showError(msg) {
+      errorBox.textContent = msg;
+      errorBox.classList.remove("hidden");
     }
 
-    // Form submission
-    document.getElementById('login-form').addEventListener('submit', async (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      hideError();
-
-      const email = e.target.email.value.trim();
-      const password = e.target.password.value.trim();
-
-      if (!email || !password) {
-        showError("Please enter both email and password.");
-        return;
-      }
+      const email = e.target.email.value;
+      const password = e.target.password.value;
 
       try {
-        await signInWithEmailAndPassword(auth, email, password);
-        window.location.href = '/dashboard';
-      } catch (error) {
-        console.error("Login failed:", error);
-        switch (error.code) {
-          case 'auth/invalid-email':
-            showError("The email address is not valid.");
-            break;
-          case 'auth/user-disabled':
-            showError("This account has been disabled.");
-            break;
-          case 'auth/user-not-found':
-          case 'auth/wrong-password':
-            showError("Invalid email or password.");
-            break;
-          default:
-            showError("An unexpected error occurred. Please try again.");
-        }
-      }
-    });
+        const result = await auth.signInWithEmailAndPassword(email, password);
+        localStorage.setItem("userEmail", email);
 
-    // Watch login state
-    onAuthStateChanged(auth, (user) => {
-      const info = document.getElementById('user-info');
-      if (user) {
-        info.textContent = `Logged in as ${user.email}`;
-      } else {
-        info.textContent = "";
+        if (ADMIN_EMAILS.includes(email)) {
+          window.location.href = "/dashboard.html"; // ✅ admin
+        } else {
+          window.location.href = "/quiz.html"; // ✅ normal user
+        }
+      } catch (err) {
+        showError(err.message);
       }
     });
   </script>
