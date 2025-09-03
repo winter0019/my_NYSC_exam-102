@@ -105,7 +105,7 @@ def allowed_file(filename):
 
 def extract_text_from_file(file_path):
     text = ""
-    ext = file_path.rsplit(".", 1)[1].lower()
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")  # safer extension handling
     try:
         if ext == "pdf":
             with open(file_path, "rb") as f:
@@ -118,6 +118,8 @@ def extract_text_from_file(file_path):
         elif ext in {"png", "jpg", "jpeg"}:
             img = Image.open(file_path)
             text = pytesseract.image_to_string(img)
+        else:
+            raise ValueError(f"Unsupported file type: {ext}")
     except Exception as e:
         logger.error(f"File extraction failed: {e}")
     return (text or "").strip()
@@ -650,6 +652,7 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
