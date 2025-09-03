@@ -466,16 +466,10 @@
     
     <div class="form-container">
       <!-- Flash Messages -->
-      <div class="flash-messages">
-        <div class="flash-message flash-info">
+      <div class="flash-messages" id="flashMessages">
+        <div class="flash-message flash-info" id="initialMessage">
           <i class="fas fa-info-circle"></i>
           Welcome back! Please enter your credentials to continue.
-        </div>
-        
-        <!-- Example error message (hidden by default) -->
-        <div class="flash-message flash-error" style="display: none;">
-          <i class="fas fa-exclamation-circle"></i>
-          Invalid email or password. Please try again.
         </div>
       </div>
 
@@ -493,7 +487,7 @@
           <i class="fas fa-lock input-icon"></i>
           <input type="password" id="password" name="password" required placeholder="Enter your password">
           <button type="button" class="toggle-password" onclick="togglePassword()">
-            <i class="fas fa-eye"></i>
+            <i class="fas fa-eye" id="passwordToggleIcon"></i>
           </button>
         </div>
         
@@ -516,10 +510,9 @@
       </form>
       
       <div class="demo-credentials">
-        <h4><i class="fas fa-info-circle"></i> Demo Credentials</h4>
-        <p><strong>Email:</strong> user@nyscexamprep.com</p>
-        <p><strong>Password:</strong> nysc2024</p>
-        <p><small>Contact admin to add your email to the allowed list</small></p>
+        <h4><i class="fas fa-info-circle"></i> Demo Info</h4>
+        <p id="userIdDisplay">User ID: </p>
+        <p>This app uses a real-time database to manage user access.</p>
       </div>
     </div>
     
@@ -529,148 +522,188 @@
     </div>
   </div>
 
-  <script>
-    // Whitelisted users (would typically be on the server side)
-    const ALLOWED_USERS = {
-      "deborahibiyinka@gmail.com",
-      "feuri73@gmail.com",
-      "zainabsalawu1989@gmail.com",
-      "alograce69@gmail.com", 
-      "abdullahimuhd790@gmail.com",
-      "davidirene2@gmail.com",
-      "maryaugie2@gmail.com",
-      "ashami73@gmail.com",
-      "comzelhua@gmail.com",
-      "niyiolaniyi@gmail.com",
-      "itszibnisah@gmail.com",
-      "olayemisiola06@gmail.com",
-      "shemasalik@gmail.com",
-      "akawupeter2@gmail.com",
-      "pantuyd@gmail.com",
-      "omnibuszara@gmail.com",
-      "mssphartyma@gmail.com",
-      "assyy.au@gmail.com",
-      "shenyshehu@gmail.com",
-      "isadeeq17@gmail.com",
-      "muhammadsadanu@gmail.com",
-      "rukitafida@gmail.com",
-      "dangalan20@gmail.com",
-      "winter19@gmail.com",
-      "adedoyinfehintola@gmail.com"
-    };
+  <script type="module">
+    // Firebase SDK imports
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, signInWithCustomToken, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, collection, query, where, getDocs, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-    function togglePassword() {
+    // Set Firestore log level to debug
+    setLogLevel('debug');
+    
+    let app, auth, db;
+    let userId = null;
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    
+    const loginForm = document.getElementById('loginForm');
+    const loginButton = document.getElementById('loginButton');
+    const loading = document.getElementById('loading');
+    const flashMessages = document.getElementById('flashMessages');
+
+    /**
+     * Shows a flash message with a specific class and icon.
+     * @param {string} message The message to display.
+     * @param {string} type The type of message (success, error, info).
+     */
+    function showFlashMessage(message, type) {
+      // Clear all existing messages except the initial info message
+      const messagesToClear = flashMessages.querySelectorAll('.flash-message:not(#initialMessage)');
+      messagesToClear.forEach(msg => msg.remove());
+
+      const messageDiv = document.createElement('div');
+      messageDiv.className = `flash-message flash-${type}`;
+      let iconClass = '';
+      switch (type) {
+        case 'success':
+          iconClass = 'fa-check-circle';
+          break;
+        case 'error':
+          iconClass = 'fa-exclamation-circle';
+          break;
+        case 'info':
+          iconClass = 'fa-info-circle';
+          break;
+      }
+      messageDiv.innerHTML = `<i class="fas ${iconClass}"></i> ${message}`;
+      flashMessages.appendChild(messageDiv);
+      messageDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /**
+     * Toggles the password field visibility.
+     */
+    window.togglePassword = function() {
       const passwordInput = document.getElementById('password');
-      const toggleButton = document.querySelector('.toggle-password i');
+      const toggleIcon = document.getElementById('passwordToggleIcon');
       
       if (passwordInput.type === 'password') {
         passwordInput.type = 'text';
-        toggleButton.classList.remove('fa-eye');
-        toggleButton.classList.add('fa-eye-slash');
+        toggleIcon.classList.remove('fa-eye');
+        toggleIcon.classList.add('fa-eye-slash');
       } else {
         passwordInput.type = 'password';
-        toggleButton.classList.remove('fa-eye-slash');
-        toggleButton.classList.add('fa-eye');
+        toggleIcon.classList.remove('fa-eye-slash');
+        toggleIcon.classList.add('fa-eye');
+      }
+    };
+
+    /**
+     * Initializes Firebase and handles the authentication state.
+     */
+    async function initializeFirebase() {
+      try {
+        if (Object.keys(firebaseConfig).length > 0) {
+          app = initializeApp(firebaseConfig);
+          auth = getAuth(app);
+          db = getFirestore(app);
+
+          // Handle initial custom token sign-in
+          const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+          if (initialAuthToken) {
+            await signInWithCustomToken(auth, initialAuthToken);
+          } else {
+            await signInAnonymously(auth);
+          }
+
+          auth.onAuthStateChanged((user) => {
+            if (user) {
+              userId = user.uid;
+              document.getElementById('userIdDisplay').textContent = `User ID: ${userId}`;
+              // For a login page, we don't want to auto-redirect after the initial token login.
+              // We just display the user ID to show that auth is working.
+              console.log("Firebase initialized and authenticated. User ID:", userId);
+            } else {
+              userId = null;
+              document.getElementById('userIdDisplay').textContent = `User ID: Not authenticated`;
+              console.log("Firebase initialized. User is not authenticated.");
+            }
+          });
+        } else {
+          showFlashMessage('Firebase configuration is missing. The app will not function correctly.', 'error');
+          console.error('Firebase configuration is missing. Cannot initialize.');
+        }
+      } catch (error) {
+        showFlashMessage(`Failed to initialize Firebase: ${error.message}`, 'error');
+        console.error('Firebase initialization error:', error);
       }
     }
     
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
+    /**
+     * Handles the login form submission.
+     * @param {Event} e The submit event.
+     */
+    loginForm.addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const button = document.getElementById('loginButton');
-      const loading = document.getElementById('loading');
+      // Clear previous error messages
+      const errorMessages = flashMessages.querySelectorAll('.flash-error');
+      errorMessages.forEach(msg => msg.remove());
+      
+      loginButton.style.display = 'none';
+      loading.style.display = 'block';
+
       const email = document.getElementById('email').value.toLowerCase();
       const password = document.getElementById('password').value;
-      
-      button.style.display = 'none';
-      loading.style.display = 'block';
-      
-      // Clear previous messages
-      document.querySelectorAll('.flash-message').forEach(msg => {
-        if (!msg.classList.contains('flash-info')) msg.remove();
-      });
-      
-      // Simulate login process
-      setTimeout(() => {
-        // Check if email is in the allowed list
-        if (!ALLOWED_USERS.has(email)) {
-          // Show error message
-          const flashContainer = document.querySelector('.flash-messages');
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'flash-message flash-error';
-          errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Access denied. Your email is not in the allowed list.';
-          flashContainer.appendChild(errorDiv);
-          
-          // Scroll to error message
-          errorDiv.scrollIntoView({ behavior: 'smooth' });
-          
-          // Reset button and loading
-          button.style.display = 'block';
-          loading.style.display = 'none';
-          return;
-        }
-        
-        // For demo purposes, check if it's the demo account
-        if (email === 'user@nyscexamprep.com' && password === 'nysc2024') {
-          // Success - show success message
-          const flashContainer = document.querySelector('.flash-messages');
-          const successDiv = document.createElement('div');
-          successDiv.className = 'flash-message flash-success';
-          successDiv.innerHTML = '<i class="fas fa-check-circle"></i> Login successful! Redirecting to dashboard...';
-          flashContainer.appendChild(successDiv);
-          
-          // Redirect after a delay
-          setTimeout(() => {
-            window.location.href = '/dashboard';
-          }, 1500);
+
+      try {
+        // Step 1: Attempt to sign in with email and password
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        const user = userCredential.user;
+
+        // Step 2: Check if the user's email is in the Firestore whitelist
+        const publicDataPath = `/artifacts/${appId}/public/data/whitelisted_emails`;
+        const q = query(collection(db, publicDataPath), where("email", "==", email));
+        const querySnapshot = await getDocs(q);
+
+        if (querySnapshot.empty) {
+          // If no matching document is found, the user is not whitelisted.
+          // Sign out the user immediately for security.
+          await auth.signOut();
+          showFlashMessage('Access denied. Your email is not in the allowed list. Please contact the administrator.', 'error');
         } else {
-          // Error - show error message
-          const flashContainer = document.querySelector('.flash-messages');
-          const errorDiv = document.createElement('div');
-          errorDiv.className = 'flash-message flash-error';
-          errorDiv.innerHTML = '<i class="fas fa-exclamation-circle"></i> Invalid email or password. Please try again.';
-          flashContainer.appendChild(errorDiv);
-          
-          // Scroll to error message
-          errorDiv.scrollIntoView({ behavior: 'smooth' });
-          
-          // Reset button and loading
-          button.style.display = 'block';
-          loading.style.display = 'none';
+          // User is authenticated and whitelisted.
+          showFlashMessage('Login successful! Redirecting to dashboard...', 'success');
+          // Simulate redirection to a dashboard page
+          setTimeout(() => {
+            // Replace with actual redirection in a real app
+            window.location.href = '#dashboard';
+          }, 1500);
         }
-      }, 1500);
+      } catch (error) {
+        let errorMessage = 'An unexpected error occurred. Please try again.';
+        switch (error.code) {
+          case 'auth/user-not-found':
+          case 'auth/wrong-password':
+          case 'auth/invalid-credential':
+            errorMessage = 'Invalid email or password. Please try again.';
+            break;
+          case 'auth/invalid-email':
+            errorMessage = 'The email address is not valid. Please try again.';
+            break;
+          case 'auth/too-many-requests':
+            errorMessage = 'Too many failed login attempts. Please try again later.';
+            break;
+          default:
+            console.error("Login error:", error.code, error.message);
+            break;
+        }
+        showFlashMessage(errorMessage, 'error');
+      } finally {
+        // Reset the UI state regardless of success or failure
+        loginButton.style.display = 'block';
+        loading.style.display = 'none';
+      }
     });
-    
-    // Auto-focus on email field
+
+    // Auto-focus on email field and handle session messages
     document.addEventListener('DOMContentLoaded', function() {
       document.getElementById('email').focus();
-      
-      // Check if there's a return_to parameter and preserve it
       const urlParams = new URLSearchParams(window.location.search);
-      const returnTo = urlParams.get('return_to');
-      if (returnTo) {
-        document.querySelector('input[name="return_to"]').value = returnTo;
-      }
-      
-      // Check for session expired parameter
       if (urlParams.get('session_expired')) {
-        // Show session expired message
-        const flashContainer = document.querySelector('.flash-messages');
-        const messageDiv = document.createElement('div');
-        messageDiv.className = 'flash-message flash-info';
-        messageDiv.innerHTML = '<i class="fas fa-info-circle"></i> Your session has expired. Please login again.';
-        flashContainer.appendChild(messageDiv);
+        showFlashMessage('Your session has expired. Please login again.', 'info');
       }
-    });
-    
-    // Handle Enter key press
-    document.addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') {
-        const focused = document.activeElement;
-        if (focused.tagName !== 'TEXTAREA' && focused.tagName !== 'INPUT') {
-          document.getElementById('loginForm').dispatchEvent(new Event('submit'));
-        }
-      }
+      initializeFirebase();
     });
   </script>
 </body>
