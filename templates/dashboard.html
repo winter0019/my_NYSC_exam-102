@@ -1,807 +1,817 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYSC Exam Dashboard</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --primary: #007bff;
-            --secondary: #0056b3;
-            --accent: #28a745;
-            --light: #f8f9fa;
-            --dark: #343a40;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYSC Exam Dashboard</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" rel="stylesheet">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #007bff;
+            --secondary: #0056b3;
+            --accent: #28a745;
+            --light: #f8f9fa;
+            --dark: #343a40;
+        }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-            color: #333;
-            line-height: 1.6;
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            color: #333;
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
 
-        .container {
-            max-width: 1000px;
-            margin: auto;
-            background: #fff;
-            padding: 30px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        }
+        .container {
+            max-width: 1000px;
+            margin: auto;
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        }
 
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 20px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #eee;
-        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
 
-        h2, h3 {
-            color: var(--dark);
-            margin-bottom: 15px;
-        }
+        h2, h3 {
+            color: var(--dark);
+            margin-bottom: 15px;
+        }
 
-        h2 {
-            color: var(--primary);
-            font-size: 2em;
-        }
+        h2 {
+            color: var(--primary);
+            font-size: 2em;
+        }
 
-        .card {
-            background: var(--light);
-            padding: 20px;
-            margin: 20px 0;
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
+        .card {
+            background: var(--light);
+            padding: 20px;
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
 
-        .card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
 
-        .btn {
-            padding: 12px 20px;
-            border-radius: 6px;
-            background: var(--primary);
-            color: #fff;
-            text-decoration: none;
-            border: none;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: 600;
-            transition: all 0.3s ease;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
+        .btn {
+            padding: 12px 20px;
+            border-radius: 6px;
+            background: var(--primary);
+            color: #fff;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
 
-        .btn:hover {
-            background: var(--secondary);
-            transform: translateY(-1px);
-        }
+        .btn:hover {
+            background: var(--secondary);
+            transform: translateY(-1px);
+        }
 
-        .btn-accent {
-            background: var(--accent);
-        }
+        .btn-accent {
+            background: var(--accent);
+        }
 
-        .btn-accent:hover {
-            background: #218838;
-        }
+        .btn-accent:hover {
+            background: #218838;
+        }
 
-        .logout {
-            background: #dc3545;
-        }
+        .logout {
+            background: #dc3545;
+        }
 
-        .logout:hover {
-            background: #c82333;
-        }
+        .logout:hover {
+            background: #c82333;
+        }
 
-        .quiz-box {
-            background: #eef;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-            border-left: 4px solid var(--primary);
-        }
+        .quiz-box {
+            background: #eef;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+            border-left: 4px solid var(--primary);
+        }
 
-        .form-group {
-            margin-bottom: 15px;
-        }
+        .form-group {
+            margin-bottom: 15px;
+        }
 
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: var(--dark);
-        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: var(--dark);
+        }
 
-        select, input[type="text"], input[type="file"] {
-            width: 100%;
-            padding: 10px;
-            border: 2px solid #e9ecef;
-            border-radius: 5px;
-            font-size: 14px;
-        }
+        select, input[type="text"], input[type="file"] {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 5px;
+            font-size: 14px;
+        }
 
-        select:focus, input[type="text"]:focus {
-            outline: none;
-            border-color: var(--primary);
-        }
+        select:focus, input[type="text"]:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
 
-        .activity-list {
-            list-style: none;
-            padding: 0;
-        }
+        .activity-list {
+            list-style: none;
+            padding: 0;
+        }
 
-        .activity-item {
-            padding: 10px 15px;
-            margin: 8px 0;
-            background: white;
-            border-radius: 5px;
-            border-left: 3px solid var(--primary);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .activity-item p {
-            margin: 0;
-        }
+        .activity-item {
+            padding: 10px 15px;
+            margin: 8px 0;
+            background: white;
+            border-radius: 5px;
+            border-left: 3px solid var(--primary);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .activity-item p {
+            margin: 0;
+        }
 
-        .options-list {
-            list-style: none;
-            padding: 0;
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-            gap: 15px;
-        }
+        .options-list {
+            list-style: none;
+            padding: 0;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 15px;
+        }
 
-        .option-item {
-            background: white;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            transition: all 0.3s ease;
-        }
+        .option-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
 
-        .option-item:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
+        .option-item:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
 
-        .option-item a {
-            text-decoration: none;
-            color: var(--primary);
-            font-weight: 600;
-            display: block;
-        }
+        .option-item a {
+            text-decoration: none;
+            color: var(--primary);
+            font-weight: 600;
+            display: block;
+        }
 
-        .option-item:hover a {
-            color: var(--secondary);
-        }
+        .option-item:hover a {
+            color: var(--secondary);
+        }
 
-        .loading {
-            display: none;
-            text-align: center;
-            padding: 20px;
-        }
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
 
-        .spinner {
-            border: 3px solid #f3f3f3;
-            border-top: 3px solid var(--primary);
-            border-radius: 50%;
-            width: 30px;
-            height: 30px;
-            animation: spin 1s linear infinite;
-            margin: 0 auto 10px;
-        }
+        .spinner {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid var(--primary);
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
 
-        .error-message {
-            background: #ffebee;
-            color: #dc3545;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            border-left: 4px solid #dc3545;
-            display: none;
-        }
-        
-        .success-message {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            margin: 10px 0;
-            border-left: 4px solid #28a745;
-            display: none;
-        }
+        .error-message {
+            background: #ffebee;
+            color: #dc3545;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #dc3545;
+            display: none;
+        }
+        
+        .success-message {
+            background: #d4edda;
+            color: #155724;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+            display: none;
+        }
 
-        /* Quiz specific styles */
-        .quiz-container {
-            margin-top: 20px;
-        }
+        /* Quiz specific styles */
+        .quiz-container {
+            margin-top: 20px;
+        }
 
-        .question {
-            margin-bottom: 25px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #eee;
-        }
+        .question {
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+        }
 
-        .question-text {
-            font-size: 18px;
-            font-weight: 600;
-            margin-bottom: 15px;
-            color: #333;
-        }
+        .question-text {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            color: #333;
+        }
 
-        .options {
-            margin-left: 20px;
-        }
+        .options {
+            margin-left: 20px;
+        }
 
-        .option {
-            display: flex;
-            align-items: flex-start;
-            margin-bottom: 12px;
-            padding: 12px;
-            border-radius: 8px;
-            border: 1px solid #e0e0e0;
-            transition: all 0.3s ease;
-            cursor: pointer;
-        }
+        .option {
+            display: flex;
+            align-items: flex-start;
+            margin-bottom: 12px;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
 
-        .option:hover {
-            background-color: #f5f7ff;
-            border-color: var(--primary);
-        }
+        .option:hover {
+            background-color: #f5f7ff;
+            border-color: var(--primary);
+        }
 
-        .option input {
-            margin-right: 15px;
-            margin-top: 3px;
-        }
+        .option input {
+            margin-right: 15px;
+            margin-top: 3px;
+        }
 
-        .option-label {
-            font-weight: 500;
-            margin-right: 10px;
-            min-width: 30px;
-        }
+        .option-label {
+            font-weight: 500;
+            margin-right: 10px;
+            min-width: 30px;
+        }
 
-        .score-container {
-            text-align: center;
-            padding: 20px;
-            font-size: 18px;
-            font-weight: 600;
-            color: #333;
-            margin: 20px 0;
-            background: #f8f9fa;
-            border-radius: 8px;
-        }
+        .score-container {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            margin: 20px 0;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
 
-        .correct {
-            background-color: #d4edda;
-            border-color: #c3e6cb;
-        }
+        .correct {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
 
-        .incorrect {
-            background-color: #f8d7da;
-            border-color: #f5c6cb;
-        }
+        .incorrect {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
 
-        .result-feedback {
-            margin-top: 10px;
-            font-size: 14px;
-            padding: 8px 12px;
-            border-radius: 4px;
-            display: none;
-        }
+        .result-feedback {
+            margin-top: 10px;
+            font-size: 14px;
+            padding: 8px 12px;
+            border-radius: 4px;
+            display: none;
+        }
 
-        .correct-answer {
-            background-color: #d4edda;
-            color: #155724;
-        }
+        .correct-answer {
+            background-color: #d4edda;
+            color: #155724;
+        }
 
-        .incorrect-answer {
-            background-color: #f8d7da;
-            color: #721c24;
-        }
+        .incorrect-answer {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
 
-        .quiz-actions {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 20px;
-        }
-    </style>
+        .quiz-actions {
+            display: flex;
+            justify-content: space-between;
+            margin-top: 20px;
+        }
+    </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h2><i class="fas fa-graduation-cap"></i> NYSC Exam Dashboard</h2>
-            <button class="btn logout" id="logoutBtn">
-                <i class="fas fa-sign-out-alt"></i> Logout
-            </button>
-        </div>
+    <div class="container">
+        <div class="header">
+            <h2><i class="fas fa-graduation-cap"></i> NYSC Exam Dashboard</h2>
+            <button class="btn logout" id="logoutBtn">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+        </div>
 
-        <div class="card">
-            <h3><i class="fas fa-user"></i> User Information</h3>
-            <p>Welcome, <strong id="userEmail">Loading...</strong></p>
-            <p><strong>User ID:</strong> <span id="userId">Loading...</span></p>
-            <p><strong>Status:</strong> <span id="userStatus" style="color: var(--accent);">Active</span></p>
-        </div>
+        <div class="card">
+            <h3><i class="fas fa-user"></i> User Information</h3>
+            <p>Welcome, <strong id="userEmail">Loading...</strong></p>
+            <p><strong>User ID:</strong> <span id="userId">Loading...</span></p>
+            <p><strong>Status:</strong> <span id="userStatus" style="color: var(--accent);">Active</span></p>
+        </div>
 
-        <div class="card">
-            <h3><i class="fas fa-file-upload"></i> Generate Quiz from Documents</h3>
-            <form id="quizForm" enctype="multipart/form-data">
-                <div class="form-group">
-                    <label><strong>Grade Level:</strong></label>
-                    <select name="gl" required>
-                        <option value="GL8">GL8</option>
-                        <option value="GL9">GL9</option>
-                        <option value="GL10" selected>GL10</option>
-                        <option value="GL12">GL12</option>
-                        <option value="GL13">GL13</option>
-                        <option value="GL14">GL14</option>
-                        <option value="GL15">GL15</option>
-                        <option value="GL16">GL16</option>
-                    </select>
-                </div>
+        <div class="card">
+            <h3><i class="fas fa-file-upload"></i> Generate Quiz from Documents</h3>
+            <form id="quizForm" enctype="multipart/form-data">
+                <div class="form-group">
+                    <label><strong>Grade Level:</strong></label>
+                    <select name="gl" required>
+                        <option value="GL8">GL8</option>
+                        <option value="GL9">GL9</option>
+                        <option value="GL10" selected>GL10</option>
+                        <option value="GL12">GL12</option>
+                        <option value="GL13">GL13</option>
+                        <option value="GL14">GL14</option>
+                        <option value="GL15">GL15</option>
+                        <option value="GL16">GL16</option>
+                    </select>
+                </div>
 
-                <div class="form-group">
-                    <label><strong>Subject:</strong></label>
-                    <input type="text" name="subject" placeholder="e.g., General Knowledge" required>
-                </div>
+                <div class="form-group">
+                    <label><strong>Subject:</strong></label>
+                    <input type="text" name="subject" placeholder="e.g., General Knowledge" required>
+                </div>
 
-                <div class="form-group">
-                    <label><strong>Main File (DOCX, PDF, or Image):</strong></label>
-                    <input type="file" id="mainFile" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" required>
-                </div>
+                <div class="form-group">
+                    <label><strong>Main File (DOCX, PDF, or Image):</strong></label>
+                    <input type="file" id="mainFile" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" required>
+                </div>
 
-                <div class="form-group">
-                    <label><strong>Past Question File (optional):</strong></label>
-                    <input type="file" name="past_file" accept=".docx,.pdf,.png,.jpg,.jpeg">
-                </div>
+                <div class="form-group">
+                    <label><strong>Past Question File (optional):</strong></label>
+                    <input type="file" name="past_file" accept=".docx,.pdf,.png,.jpg,.jpeg">
+                </div>
 
-                <button type="submit" class="btn">
-                    <i class="fas fa-cogs"></i> Generate Quiz
-                </button>
-            </form>
+                <button type="submit" class="btn">
+                    <i class="fas fa-cogs"></i> Generate Quiz
+                </button>
+            </form>
 
-            <div class="loading" id="loading">
-                <div class="spinner"></div>
-                <p>Generating your quiz...</p>
-            </div>
-            
-            <div id="quizResult" class="quiz-box" style="display:none;">
-                <h4><i class="fas fa-tasks"></i> Generated Quiz</h4>
-                <div id="quizContent"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>Generating your quiz...</p>
+            </div>
+            
+            <div id="quizResult" class="quiz-box" style="display:none;">
+                <h4><i class="fas fa-tasks"></i> Generated Quiz</h4>
+                <div id="quizContent"></div>
 
-                <div class="quiz-actions">
-                    <button class="btn" id="submitQuizBtn">
-                        <i class="fas fa-check-circle"></i> Submit Answers
-                    </button>
-                    <button class="btn btn-accent" id="newQuizBtn" style="display:none;">
-                        <i class="fas fa-plus-circle"></i> Generate New Quiz
-                    </button>
-                </div>
+                <div class="quiz-actions">
+                    <button class="btn" id="submitQuizBtn">
+                        <i class="fas fa-check-circle"></i> Submit Answers
+                    </button>
+                    <button class="btn btn-accent" id="newQuizBtn" style="display:none;">
+                        <i class="fas fa-plus-circle"></i> Generate New Quiz
+                    </button>
+                </div>
 
-                <div class="score-container" id="scoreContainer" style="display:none;">
-                    Your score: <span id="score">0</span> out of <span id="total">0</span>
-                </div>
-            </div>
-            <div id="errorMessage" class="error-message"></div>
-            <div id="successMessage" class="success-message"></div>
-        </div>
+                <div class="score-container" id="scoreContainer" style="display:none;">
+                    Your score: <span id="score">0</span> out of <span id="total">0</span>
+                </div>
+            </div>
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+        </div>
 
-        <div class="card">
-            <h3><i class="fas fa-history"></i> Your Recent Activity</h3>
-            <ul class="activity-list" id="activityList">
-                <p>Loading activity...</p>
-            </ul>
-        </div>
+        <div class="card">
+            <h3><i class="fas fa-history"></i> Your Recent Activity</h3>
+            <ul class="activity-list" id="activityList">
+                <p>Loading activity...</p>
+            </ul>
+        </div>
 
-        <div class="card">
-            <h3><i class="fas fa-cogs"></i> Options</h3>
-            <ul class="options-list">
-                <li class="option-item">
-                    <a href="#" id="freeTrialBtn">
-                        <i class="fas fa-bolt"></i> Free Trial Quiz
-                    </a>
-                </li>
-                <li class="option-item">
-                    <a href="#" id="joinRoomBtn">
-                        <i class="fas fa-comments"></i> Join Discussion Room
-                    </a>
-                </li>
-                <li class="option-item">
-                    <a href="#" id="createRoomBtn">
-                        <i class="fas fa-plus-circle"></i> Create Discussion Room
-                    </a>
-                </li>
-                <li class="option-item">
-                    <a href="#" onclick="window.location.reload(); return false;">
-                        <i class="fas fa-sync-alt"></i> Refresh Dashboard
-                    </a>
-                </li>
-            </ul>
-        </div>
-    </div>
-    
-    <!-- Custom Modal for Alerts -->
-    <div id="customModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
-        <div style="background:#fff; padding:20px; border-radius:10px; max-width:400px; margin:100px auto; text-align:center;">
-            <p id="modalMessage"></p>
-            <button onclick="document.getElementById('customModal').style.display='none';" class="btn" style="margin-top:10px;">OK</button>
-        </div>
-    </div>
+        <div class="card">
+            <h3><i class="fas fa-cogs"></i> Options</h3>
+            <ul class="options-list">
+                <li class="option-item">
+                    <a href="#" id="freeTrialBtn">
+                        <i class="fas fa-bolt"></i> Free Trial Quiz
+                    </a>
+                </li>
+                <li class="option-item">
+                    <a href="#" id="joinRoomBtn">
+                        <i class="fas fa-comments"></i> Join Discussion Room
+                    </a>
+                </li>
+                <li class="option-item">
+                    <a href="#" id="createRoomBtn">
+                        <i class="fas fa-plus-circle"></i> Create Discussion Room
+                    </a>
+                </li>
+                <li class="option-item">
+                    <a href="#" onclick="window.location.reload(); return false;">
+                        <i class="fas fa-sync-alt"></i> Refresh Dashboard
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+    
+        <div id="customModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000;">
+        <div style="background:#fff; padding:20px; border-radius:10px; max-width:400px; margin:100px auto; text-align:center;">
+            <p id="modalMessage"></p>
+            <button onclick="document.getElementById('customModal').style.display='none';" class="btn" style="margin-top:10px;">OK</button>
+        </div>
+    </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithCustomToken, signInAnonymously, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, addDoc, setDoc, onSnapshot, collection, query, serverTimestamp, getDocs } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        setLogLevel('debug');
+        setLogLevel('debug');
 
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-        
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        
-        let userId = null;
-        let isAuthReady = false;
-        let currentQuizData = null;
+        // --- ⚠️ FIX: ADDED YOUR FIREBASE CONFIGURATION HERE ⚠️ ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCyU4fCiZEo_jGCf3Am7_7CGwH43EjqQD4",
+            authDomain: "exam-prep-102.firebaseapp.com",
+            projectId: "exam-prep-102",
+            storageBucket: "exam-prep-102.firebasestorage.app",
+            messagingSenderId: "1048082051309",
+            appId: "1:1048082051309:web:60c9ef8aaa0e9f638d5ce4",
+            measurementId: "G-0ZRVZBM37H"
+        };
+        const app = initializeApp(firebaseConfig);
+        
+        // --- ⚠️ FIX: REMOVED OLD PLACEHOLDERS ⚠️ ---
+        const initialAuthToken = null;
+        
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        
+        let userId = null;
+        let isAuthReady = false;
+        let currentQuizData = null;
 
-        // --- Utility Functions ---
-        function showModal(message) {
-            document.getElementById('modalMessage').textContent = message;
-            document.getElementById('customModal').style.display = 'block';
-        }
+        // --- Utility Functions ---
+        function showModal(message) {
+            document.getElementById('modalMessage').textContent = message;
+            document.getElementById('customModal').style.display = 'block';
+        }
 
-        function setLoading(loading) {
-            document.getElementById('loading').style.display = loading ? 'block' : 'none';
-        }
+        function setLoading(loading) {
+            document.getElementById('loading').style.display = loading ? 'block' : 'none';
+        }
 
-        function showError(message) {
-            const errorDiv = document.getElementById('errorMessage');
-            errorDiv.textContent = message;
-            errorDiv.style.display = 'block';
-            setTimeout(() => {
-                errorDiv.style.display = 'none';
-            }, 5000);
-        }
+        function showError(message) {
+            const errorDiv = document.getElementById('errorMessage');
+            errorDiv.textContent = message;
+            errorDiv.style.display = 'block';
+            setTimeout(() => {
+                errorDiv.style.display = 'none';
+            }, 5000);
+        }
 
-        function showSuccess(message) {
-            const successDiv = document.getElementById('successMessage');
-            successDiv.textContent = message;
-            successDiv.style.display = 'block';
-            setTimeout(() => {
-                successDiv.style.display = 'none';
-            }, 5000);
-        }
+        function showSuccess(message) {
+            const successDiv = document.getElementById('successMessage');
+            successDiv.textContent = message;
+            successDiv.style.display = 'block';
+            setTimeout(() => {
+                successDiv.style.display = 'none';
+            }, 5000);
+        }
 
-        function renderQuiz(data) {
-            const quizContent = document.getElementById("quizContent");
-            let html = '<div class="quiz-container">';
+        function renderQuiz(data) {
+            const quizContent = document.getElementById("quizContent");
+            let html = '<div class="quiz-container">';
 
-            data.quiz.forEach((q, index) => {
-                html += `<div class="question" id="question${index}">
-                    <div class="question-text">${q.question}</div>
-                    <div class="options">`;
+            data.quiz.forEach((q, index) => {
+                html += `<div class="question" id="question${index}">
+                    <div class="question-text">${q.question}</div>
+                    <div class="options">`;
 
-                q.options.forEach((opt, optIndex) => {
-                    const optionLetter = String.fromCharCode(65 + optIndex);
-                    html += `<label class="option">
-                        <input type="radio" name="q${index}" value="${optionLetter}">
-                        <span class="option-label">${optionLetter}.</span>
-                        <span class="option-text">${opt}</span>
-                    </label>`;
-                });
+                q.options.forEach((opt, optIndex) => {
+                    const optionLetter = String.fromCharCode(65 + optIndex);
+                    html += `<label class="option">
+                        <input type="radio" name="q${index}" value="${optionLetter}">
+                        <span class="option-label">${optionLetter}.</span>
+                        <span class="option-text">${opt}</span>
+                    </label>`;
+                });
 
-                html += `</div>
-                    <div class="result-feedback" id="feedback${index}"></div>
-                </div>`;
-            });
+                html += `</div>
+                    <div class="result-feedback" id="feedback${index}"></div>
+                </div>`;
+            });
 
-            html += '</div>';
-            quizContent.innerHTML = html;
+            html += '</div>';
+            quizContent.innerHTML = html;
 
-            document.getElementById('submitQuizBtn').style.display = 'block';
-            document.getElementById('newQuizBtn').style.display = 'none';
-            document.getElementById('scoreContainer').style.display = 'none';
-            document.getElementById('quizResult').style.display = "block";
-        }
-        
-        // --- Firebase Authentication and Data Logic ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                userId = user.uid;
-                document.getElementById('userEmail').textContent = user.email || 'Anonymous User';
-                document.getElementById('userId').textContent = userId;
-                isAuthReady = true;
+            document.getElementById('submitQuizBtn').style.display = 'block';
+            document.getElementById('newQuizBtn').style.display = 'none';
+            document.getElementById('scoreContainer').style.display = 'none';
+            document.getElementById('quizResult').style.display = "block";
+        }
+        
+        // --- Firebase Authentication and Data Logic ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                userId = user.uid;
+                document.getElementById('userEmail').textContent = user.email || 'Anonymous User';
+                document.getElementById('userId').textContent = userId;
+                isAuthReady = true;
 
-                const userQuizHistoryRef = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
-                
-                onSnapshot(userQuizHistoryRef, (snapshot) => {
-                    const activityList = document.getElementById('activityList');
-                    if (snapshot.empty) {
-                        activityList.innerHTML = "<p>No activity yet. Generate your first quiz to get started!</p>";
-                    } else {
-                        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-                        docs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
+                // Using projectId as the artifact name for clarity
+                const userQuizHistoryRef = collection(db, `artifacts/${firebaseConfig.projectId}/users/${userId}/quiz_history`);
+                
+                onSnapshot(userQuizHistoryRef, (snapshot) => {
+                    const activityList = document.getElementById('activityList');
+                    if (snapshot.empty) {
+                        activityList.innerHTML = "<p>No activity yet. Generate your first quiz to get started!</p>";
+                    } else {
+                        const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                        docs.sort((a, b) => (b.timestamp?.seconds || 0) - (a.timestamp?.seconds || 0));
 
-                        activityList.innerHTML = "";
-                        docs.forEach(data => {
-                            const li = document.createElement('li');
-                            li.className = 'activity-item';
-                            const date = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : 'N/A';
-                            li.innerHTML = `
-                                <p><strong>Quiz:</strong> ${data.subject || 'Unknown Subject'}</p>
-                                <p><strong>Score:</strong> ${data.score}/${data.total}</p>
-                                <p><strong>Date:</strong> ${date}</p>
-                            `;
-                            activityList.appendChild(li);
-                        });
-                    }
-                }, (error) => {
-                    console.error("Error fetching activity:", error);
-                    showError("Failed to load recent activity.");
-                });
-            } else {
-                console.log("User not logged in, attempting to sign in...");
-                await setPersistence(auth, browserLocalPersistence);
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Authentication failed:", error);
-                    showError("Authentication failed. Please try refreshing the page.");
-                }
-            }
-        });
+                        activityList.innerHTML = "";
+                        docs.forEach(data => {
+                            const li = document.createElement('li');
+                            li.className = 'activity-item';
+                            const date = data.timestamp ? new Date(data.timestamp.seconds * 1000).toLocaleString() : 'N/A';
+                            li.innerHTML = `
+                                <p><strong>Quiz:</strong> ${data.subject || 'Unknown Subject'}</p>
+                                <p><strong>Score:</strong> ${data.score}/${data.total}</p>
+                                <p><strong>Date:</strong> ${date}</p>
+                            `;
+                            activityList.appendChild(li);
+                        });
+                    }
+                }, (error) => {
+                    console.error("Error fetching activity:", error);
+                    showError("Failed to load recent activity.");
+                });
+            } else {
+                console.log("User not logged in, attempting to sign in...");
+                await setPersistence(auth, browserLocalPersistence);
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Authentication failed:", error);
+                    showError("Authentication failed. Please try refreshing the page.");
+                }
+            }
+        });
 
-        async function saveQuizResult(score, total, subject) {
-            if (!userId) {
-                console.error("User ID is not available. Cannot save quiz result.");
-                return;
-            }
+        async function saveQuizResult(score, total, subject) {
+            if (!userId) {
+                console.error("User ID is not available. Cannot save quiz result.");
+                return;
+            }
 
-            try {
-                const quizHistoryRef = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
-                await addDoc(quizHistoryRef, {
-                    score: score,
-                    total: total,
-                    subject: subject,
-                    timestamp: serverTimestamp()
-                });
-                showSuccess("Your quiz result has been saved!");
-            } catch (error) {
-                console.error("Error writing document to Firestore:", error);
-                showError("Failed to save quiz result. Check console for details.");
-            }
-        }
+            try {
+                // Using projectId as the artifact name for clarity
+                const quizHistoryRef = collection(db, `artifacts/${firebaseConfig.projectId}/users/${userId}/quiz_history`);
+                await addDoc(quizHistoryRef, {
+                    score: score,
+                    total: total,
+                    subject: subject,
+                    timestamp: serverTimestamp()
+                });
+                showSuccess("Your quiz result has been saved!");
+            } catch (error) {
+                console.error("Error writing document to Firestore:", error);
+                showError("Failed to save quiz result. Check console for details.");
+            }
+        }
 
-        // Handles file reading and conversion to Base64
-        function readFileAsBase64(file) {
-            return new Promise((resolve, reject) => {
-                const reader = new FileReader();
-                reader.onload = () => resolve(reader.result.split(',')[1]);
-                reader.onerror = error => reject(error);
-                reader.readAsDataURL(file);
-            });
-        }
-        
-        // --- Event Listeners ---
-        window.onload = function() {
-            document.getElementById("quizForm").addEventListener("submit", async function(e) {
-                e.preventDefault();
+        // Handles file reading and conversion to Base64
+        function readFileAsBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = error => reject(error);
+                reader.readAsDataURL(file);
+            });
+        }
+        
+        // --- Event Listeners ---
+        window.onload = function() {
+            document.getElementById("quizForm").addEventListener("submit", async function(e) {
+                e.preventDefault();
 
-                setLoading(true);
-                document.getElementById('quizResult').style.display = 'none';
+                setLoading(true);
+                document.getElementById('quizResult').style.display = 'none';
 
-                const subject = this.subject.value;
-                const gradeLevel = this.gl.value;
-                const mainFile = this.file.files[0];
-                
-                if (!mainFile) {
-                    showError("Please select a file to generate a quiz.");
-                    setLoading(false);
-                    return;
-                }
+                const subject = this.subject.value;
+                const gradeLevel = this.gl.value;
+                const mainFile = this.file.files[0];
+                
+                if (!mainFile) {
+                    showError("Please select a file to generate a quiz.");
+                    setLoading(false);
+                    return;
+                }
 
-                try {
-                    // Read the main file and create a prompt for the LLM
-                    let fileContent = await readFileAsBase64(mainFile);
-                    let mimeType = mainFile.type;
-                    let prompt = `Generate a 3-question multiple-choice quiz for a ${gradeLevel} exam on the subject of "${subject}". Ensure each question has 3-4 options and a single correct answer. The quiz should be based on the provided document. The quiz should be returned in a structured JSON format with a 'quiz' array, each object having a 'question' string, 'options' array of strings, and a 'correct' answer string (A, B, C, or D).
+                try {
+                    // Read the main file and create a prompt for the LLM
+                    let fileContent = await readFileAsBase64(mainFile);
+                    let mimeType = mainFile.type;
+                    let prompt = `Generate a 3-question multiple-choice quiz for a ${gradeLevel} exam on the subject of "${subject}". Ensure each question has 3-4 options and a single correct answer. The quiz should be based on the provided document. The quiz should be returned in a structured JSON format with a 'quiz' array, each object having a 'question' string, 'options' array of strings, and a 'correct' answer string (A, B, C, or D).
 
-                    Example JSON format:
-                    {
-                      "quiz": [
-                        {
-                          "question": "Question text...",
-                          "options": ["Option A", "Option B", "Option C"],
-                          "correct": "B"
-                        }
-                      ]
-                    }
-                    `;
-                    
-                    // Create the API payload
-                    const payload = {
-                        contents: [
-                            {
-                                role: "user",
-                                parts: [
-                                    { text: prompt },
-                                    {
-                                        inlineData: {
-                                            mimeType: mimeType,
-                                            data: fileContent
-                                        }
-                                    }
-                                ]
-                            }
-                        ],
-                        generationConfig: {
-                            responseMimeType: "application/json",
-                            responseSchema: {
-                                type: "OBJECT",
-                                properties: {
-                                    "quiz": {
-                                        "type": "ARRAY",
-                                        "items": {
-                                            "type": "OBJECT",
-                                            "properties": {
-                                                "question": { "type": "STRING" },
-                                                "options": {
-                                                    "type": "ARRAY",
-                                                    "items": { "type": "STRING" }
-                                                },
-                                                "correct": { "type": "STRING" }
-                                            },
-                                            "propertyOrdering": ["question", "options", "correct"]
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    };
-                    
-                    // Make the API call to generate the quiz
-                    const apiKey = "";
-                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-                    
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
+                    Example JSON format:
+                    {
+                      "quiz": [
+                        {
+                          "question": "Question text...",
+                          "options": ["Option A", "Option B", "Option C"],
+                          "correct": "B"
+                        }
+                      ]
+                    }
+                    `;
+                    
+                    // Create the API payload
+                    const payload = {
+                        contents: [
+                            {
+                                role: "user",
+                                parts: [
+                                    { text: prompt },
+                                    {
+                                        inlineData: {
+                                            mimeType: mimeType,
+                                            data: fileContent
+                                        }
+                                    }
+                                ]
+                            }
+                        ],
+                        generationConfig: {
+                            responseMimeType: "application/json",
+                            responseSchema: {
+                                type: "OBJECT",
+                                properties: {
+                                    "quiz": {
+                                        "type": "ARRAY",
+                                        "items": {
+                                            "type": "OBJECT",
+                                            "properties": {
+                                                "question": { "type": "STRING" },
+                                                "options": {
+                                                    "type": "ARRAY",
+                                                    "items": { "type": "STRING" }
+                                                },
+                                                "correct": { "type": "STRING" }
+                                            },
+                                            "propertyOrdering": ["question", "options", "correct"]
+                                        }
+                                    }
+                                }
+                            }
+                        };
+                    
+                    // --- ⚠️ FIX: ADDED PLACEHOLDER FOR YOUR GEMINI API KEY ⚠️ ---
+                    const apiKey = "YOUR_GEMINI_API_KEY_HERE";
+                    const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+                    
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
 
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`API response was not ok: ${response.status} - ${errorText}`);
-                    }
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`API response was not ok: ${response.status} - ${errorText}`);
+                    }
 
-                    const result = await response.json();
-                    const jsonPart = result.candidates?.[0]?.content?.parts?.[0]?.text;
+                    const result = await response.json();
+                    const jsonPart = result.candidates?.[0]?.content?.parts?.[0]?.text;
 
-                    if (jsonPart) {
-                        currentQuizData = JSON.parse(jsonPart);
-                        renderQuiz(currentQuizData);
-                    } else {
-                        showError("Failed to generate quiz. The model response was empty or malformed.");
-                    }
-                } catch (error) {
-                    console.error("Error during quiz generation:", error);
-                    showError(`Failed to generate quiz: ${error.message}`);
-                } finally {
-                    setLoading(false);
-                    document.getElementById('quizResult').scrollIntoView({ behavior: 'smooth' });
-                }
-            });
+                    if (jsonPart) {
+                        currentQuizData = JSON.parse(jsonPart);
+                        renderQuiz(currentQuizData);
+                    } else {
+                        showError("Failed to generate quiz. The model response was empty or malformed.");
+                    }
+                } catch (error) {
+                    console.error("Error during quiz generation:", error);
+                    showError(`Failed to generate quiz: ${error.message}`);
+                } finally {
+                    setLoading(false);
+                    document.getElementById('quizResult').scrollIntoView({ behavior: 'smooth' });
+                }
+            });
 
-            document.getElementById('submitQuizBtn').addEventListener('click', function() {
-                if (!currentQuizData) return;
+            document.getElementById('submitQuizBtn').addEventListener('click', function() {
+                if (!currentQuizData) return;
 
-                let score = 0;
-                const total = currentQuizData.quiz.length;
-                const subject = document.querySelector('input[name="subject"]').value;
+                let score = 0;
+                const total = currentQuizData.quiz.length;
+                const subject = document.querySelector('input[name="subject"]').value;
 
-                for (let i = 0; i < total; i++) {
-                    const questionElement = document.getElementById(`question${i}`);
-                    const selectedOption = questionElement.querySelector(`input[name=q${i}]:checked`);
-                    const feedbackElement = document.getElementById(`feedback${i}`);
-                    
-                    if (selectedOption && selectedOption.value === currentQuizData.quiz[i].correct) {
-                        score++;
-                        selectedOption.parentElement.classList.add('correct');
-                        feedbackElement.textContent = "Correct! Well done.";
-                        feedbackElement.classList.add('correct-answer');
-                    } else {
-                        if (selectedOption) {
-                           selectedOption.parentElement.classList.add('incorrect');
-                        }
-                        const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
-                        correctOption.classList.add('correct');
-                        feedbackElement.textContent = `Incorrect. The correct answer is ${currentQuizData.quiz[i].correct}.`;
-                        feedbackElement.classList.add('incorrect-answer');
-                    }
-                    feedbackElement.style.display = 'block';
+                for (let i = 0; i < total; i++) {
+                    const questionElement = document.getElementById(`question${i}`);
+                    const selectedOption = questionElement.querySelector(`input[name=q${i}]:checked`);
+                    const feedbackElement = document.getElementById(`feedback${i}`);
+                    
+                    if (selectedOption && selectedOption.value === currentQuizData.quiz[i].correct) {
+                        score++;
+                        selectedOption.parentElement.classList.add('correct');
+                        feedbackElement.textContent = "Correct! Well done.";
+                        feedbackElement.classList.add('correct-answer');
+                    } else {
+                        if (selectedOption) {
+                           selectedOption.parentElement.classList.add('incorrect');
+                        }
+                        const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
+                        correctOption.classList.add('correct');
+                        feedbackElement.textContent = `Incorrect. The correct answer is ${currentQuizData.quiz[i].correct}.`;
+                        feedbackElement.classList.add('incorrect-answer');
+                    }
+                    feedbackElement.style.display = 'block';
 
-                    const allOptions = questionElement.querySelectorAll('input[type="radio"]');
-                    allOptions.forEach(option => option.disabled = true);
-                }
+                    const allOptions = questionElement.querySelectorAll('input[type="radio"]');
+                    allOptions.forEach(option => option.disabled = true);
+                }
 
-                document.getElementById('score').textContent = score;
-                document.getElementById('total').textContent = total;
-                document.getElementById('scoreContainer').style.display = 'block';
+                document.getElementById('score').textContent = score;
+                document.getElementById('total').textContent = total;
+                document.getElementById('scoreContainer').style.display = 'block';
 
-                document.getElementById('submitQuizBtn').style.display = 'none';
-                document.getElementById('newQuizBtn').style.display = 'block';
-                
-                saveQuizResult(score, total, subject);
-            });
+                document.getElementById('submitQuizBtn').style.display = 'none';
+                document.getElementById('newQuizBtn').style.display = 'block';
+                
+                saveQuizResult(score, total, subject);
+            });
 
-            document.getElementById('newQuizBtn').addEventListener('click', function() {
-                document.getElementById('quizForm').reset();
-                document.getElementById('quizResult').style.display = 'none';
-                currentQuizData = null;
-            });
+            document.getElementById('newQuizBtn').addEventListener('click', function() {
+                document.getElementById('quizForm').reset();
+                document.getElementById('quizResult').style.display = 'none';
+                currentQuizData = null;
+            });
 
-            document.getElementById('logoutBtn').addEventListener('click', async () => {
-                try {
-                    await signOut(auth);
-                    document.getElementById('userEmail').textContent = 'Loading...';
-                    document.getElementById('userId').textContent = 'Loading...';
-                    showModal("You have been logged out successfully.");
-                } catch (error) {
-                    console.error("Error logging out:", error);
-                    showModal("Failed to log out. Please try again.");
-                }
-            });
+            document.getElementById('logoutBtn').addEventListener('click', async () => {
+                try {
+                    await signOut(auth);
+                    document.getElementById('userEmail').textContent = 'Loading...';
+                    document.getElementById('userId').textContent = 'Loading...';
+                    showModal("You have been logged out successfully.");
+                } catch (error) {
+                    console.error("Error logging out:", error);
+                    showModal("Failed to log out. Please try again.");
+                }
+            });
 
-            document.getElementById('freeTrialBtn').addEventListener('click', (e) => {
-                e.preventDefault();
-                showModal("This button would generate a pre-loaded free trial quiz.");
-            });
+            document.getElementById('freeTrialBtn').addEventListener('click', (e) => {
+                e.preventDefault();
+                showModal("This button would generate a pre-loaded free trial quiz.");
+            });
 
-            document.getElementById('joinRoomBtn').addEventListener('click', (e) => {
-                e.preventDefault();
-                if (userId) {
-                    window.open(`https://example.com/discussion-room/${userId}`, '_blank');
-                } else {
-                    showModal("Please wait for authentication to complete before joining a room.");
-                }
-            });
+            document.getElementById('joinRoomBtn').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (userId) {
+                    window.open(`https://example.com/discussion-room/${userId}`, '_blank');
+                } else {
+                    showModal("Please wait for authentication to complete before joining a room.");
+                }
+            });
 
-            document.getElementById('createRoomBtn').addEventListener('click', (e) => {
-                e.preventDefault();
-                if (userId) {
-                    window.open(`https://example.com/new-room?user=${userId}`, '_blank');
-                } else {
-                    showModal("Please wait for authentication to complete before creating a room.");
-                }
-            });
-        };
-    </script>
+            document.getElementById('createRoomBtn').addEventListener('click', (e) => {
+                e.preventDefault();
+                if (userId) {
+                    window.open(`https://example.com/new-room?user=${userId}`, '_blank');
+                } else {
+                    showModal("Please wait for authentication to complete before creating a room.");
+                }
+            });
+        };
+    </script>
 </body>
 </html>
