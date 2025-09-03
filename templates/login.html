@@ -24,26 +24,13 @@
                class="mt-1 block w-full border rounded-md px-3 py-2 shadow-sm focus:ring-blue-500 focus:border-blue-500">
       </div>
       <button type="submit"
-              class="w-full py-2 px-4 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700">
+              class="w-full py-2 px-4 bg-blue-600 text-white rounded-md shadow hover:bg-blue-700" id="loginBtn">
         Sign In
       </button>
     </form>
   </div>
 
-  <!-- Firebase SDK -->
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
   <script>
-    // --- Firebase config injected from server ---
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
-
-    if (firebaseConfig) {
-      firebase.initializeApp(firebaseConfig);
-    }
-
-    const auth = firebase.auth();
-    const ADMIN_EMAILS = ["your.email@example.com"]; // 🔑 add more if needed
-
     const form = document.getElementById("login-form");
     const errorBox = document.getElementById("error-message");
 
@@ -54,20 +41,29 @@
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const email = e.target.email.value;
-      const password = e.target.password.value;
+      const email = e.target.email.value.trim().toLowerCase();
+      const password = e.target.password.value.trim();
 
       try {
-        const result = await auth.signInWithEmailAndPassword(email, password);
-        localStorage.setItem("userEmail", email);
+        const res = await fetch("/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        });
 
-        if (ADMIN_EMAILS.includes(email)) {
-          window.location.href = "/dashboard.html"; // ✅ admin
+        const data = await res.json();
+        if (res.ok && data.ok) {
+          // Redirect depending on role
+          if (data.role === "admin") {
+            window.location.href = "/dashboard";
+          } else {
+            window.location.href = "/quiz";
+          }
         } else {
-          window.location.href = "/quiz.html"; // ✅ normal user
+          showError(data.error || "Login failed");
         }
       } catch (err) {
-        showError(err.message);
+        showError("Error connecting to server");
       }
     });
   </script>
