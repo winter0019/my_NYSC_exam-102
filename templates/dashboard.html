@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYSC Exam Prep - User Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="/static/js/firebase.js"></script>
-</head>
+    
+    </head>
 <body class="bg-gray-50 min-h-screen p-6">
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <div class="flex justify-between items-center mb-6">
@@ -56,7 +54,11 @@
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // ✅ Import auth and signOut from the firebase.js module
+        import { auth, signOut } from "/static/js/firebase.js";
+
+        const ADMIN_EMAILS = ["admin@nysc.gov.ng", "dangalan20@gmail.com"];
         const email = localStorage.getItem("userEmail");
         const status = document.getElementById("status");
         const content = document.getElementById("content");
@@ -68,8 +70,12 @@
         const messageInput = document.getElementById("message-input");
         const summaryBtn = document.getElementById("summary-btn");
 
+        // --- Auth & Admin Check ---
         if (!email) {
             window.location.href = "/login";
+        } else if (ADMIN_EMAILS.includes(email)) {
+            // ✅ Correctly redirect admins to their dashboard
+            window.location.href = "/admin_dashboard";
         } else {
             status.textContent = `✅ Logged in as: ${email}`;
             content.classList.remove("hidden");
@@ -77,9 +83,8 @@
 
         // --- Corrected Logout ---
         logoutBtn.addEventListener("click", () => {
-            // Step 1: Sign out of Firebase
-            firebase.auth().signOut().then(() => {
-                // Step 2: Clear the Flask server session
+            // ✅ Now this will correctly call the imported signOut function
+            signOut(auth).then(() => {
                 fetch('/logout', {
                     method: 'POST'
                 }).then(() => {
@@ -87,7 +92,6 @@
                     window.location.href = "/login";
                 }).catch(error => {
                     console.error("Server-side logout failed:", error);
-                    // Even if server-side logout fails, clear local storage and redirect
                     localStorage.removeItem("userEmail");
                     window.location.href = "/login";
                 });
@@ -123,7 +127,7 @@
                         msgEl.innerHTML = `<strong>${msg.user}:</strong> ${msg.text}`;
                         discussionMessagesEl.appendChild(msgEl);
                     });
-                    discussionMessagesEl.scrollTop = discussionMessagesEl.scrollHeight; // Scroll to bottom
+                    discussionMessagesEl.scrollTop = discussionMessagesEl.scrollHeight;
                 }
             } catch (error) {
                 console.error("Failed to fetch messages:", error);
@@ -143,7 +147,7 @@
                     body: JSON.stringify({ message: message })
                 });
                 messageInput.value = '';
-                fetchMessages(); // Refresh messages after sending
+                fetchMessages();
             } catch (error) {
                 console.error("Failed to post message:", error);
                 alert("Failed to send message. Please try again.");
@@ -170,10 +174,9 @@
             }
         });
 
-        // Initial fetch and periodic updates
         fetchCurrentDiscussion();
         fetchMessages();
-        setInterval(fetchMessages, 5000); // Poll for new messages every 5 seconds
+        setInterval(fetchMessages, 5000);
     </script>
 </body>
 </html>
