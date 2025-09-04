@@ -1,54 +1,146 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NYSC Exam Prep - Admin Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYSC Exam Prep - Admin Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="/static/js/firebase.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
-  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
-    <h1 class="text-2xl font-bold mb-6">Admin Dashboard</h1>
-    <p id="status" class="mb-4 text-gray-600">Checking access...</p>
-
-    <!-- Dashboard Content -->
-    <div id="content" class="hidden space-y-6">
-      <p class="mb-4">Welcome, Admin! 🎉</p>
-
-      <!-- Exam Tools -->
-      <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-        <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
-        <p class="mb-4">Generate quizzes from uploaded documents or try the free trial quiz.</p>
-        <div class="flex gap-4">
-          <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
-          <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
         </div>
-      </section>
 
-      <!-- Placeholder for stats/analytics -->
-      <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-        <h2 class="text-lg font-semibold mb-4">Analytics</h2>
-        <p class="text-gray-600">📊 Stats, reports, and usage charts will appear here.</p>
-      </section>
+        <p id="status" class="mb-4 text-gray-600">Checking access...</p>
+
+        <div id="content" class="hidden space-y-6">
+            <p class="mb-4">Welcome, Admin! 🎉</p>
+
+            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+                <h2 class="text-lg font-semibold mb-4">Live Statistics</h2>
+                <div class="space-y-2">
+                    <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold">...</span></p>
+                </div>
+            </section>
+
+            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+                <h2 class="text-lg font-semibold mb-4">Create Discussion Topic</h2>
+                <p class="mb-4">Post a new question for all users to discuss.</p>
+                <form id="create-discussion-form" class="space-y-4">
+                    <div>
+                        <label for="discussion-question" class="block text-sm font-medium text-gray-700">Discussion Question</label>
+                        <textarea id="discussion-question" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Post Discussion</button>
+                </form>
+            </section>
+
+            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+                <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
+                <p class="mb-4">Generate quizzes from uploaded documents or try the free trial quiz.</p>
+                <div class="flex gap-4">
+                    <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
+                    <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+                </div>
+            </section>
+            
+            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+                <h2 class="text-lg font-semibold mb-4">Analytics</h2>
+                <p class="text-gray-600">📊 Stats, reports, and usage charts will appear here.</p>
+            </section>
+        </div>
     </div>
-  </div>
 
-  <script>
-    const ADMIN_EMAILS = ["admin@nysc.gov.ng", "dangalan@gmail.com"]; // 🔑 add more admins here
-    const email = localStorage.getItem("userEmail");
+    <script>
+        const ADMIN_EMAILS = ["admin@nysc.gov.ng", "dangalan@gmail.com"]; // 🔑 Add all admin emails here
+        const email = localStorage.getItem("userEmail");
 
-    const status = document.getElementById("status");
-    const content = document.getElementById("content");
+        const status = document.getElementById("status");
+        const content = document.getElementById("content");
+        const logoutBtn = document.getElementById("logout-btn");
 
-    if (!email) {
-      window.location.href = "/login";
-    } else if (!ADMIN_EMAILS.includes(email)) {
-      window.location.href = "/quiz"; // 🚫 not admin
-    } else {
-      status.textContent = `✅ Logged in as Admin: ${email}`;
-      content.classList.remove("hidden");
-    }
-</script>
+        const onlineUsersEl = document.getElementById("online-users");
+        const createDiscussionForm = document.getElementById("create-discussion-form");
+        const discussionQuestionInput = document.getElementById("discussion-question");
+
+        // --- Auth Check ---
+        if (!email) {
+            window.location.href = "/login";
+        } else if (!ADMIN_EMAILS.includes(email)) {
+            window.location.href = "/quiz"; // 🚫 not admin
+        } else {
+            status.textContent = `✅ Logged in as Admin: ${email}`;
+            content.classList.remove("hidden");
+        }
+
+        // --- Corrected Logout ---
+        logoutBtn.addEventListener("click", () => {
+            // Step 1: Sign out of Firebase
+            firebase.auth().signOut().then(() => {
+                // Step 2: Clear the Flask server session
+                fetch('/logout', {
+                    method: 'POST'
+                }).then(() => {
+                    localStorage.removeItem("userEmail");
+                    window.location.href = "/login";
+                }).catch(error => {
+                    console.error("Server-side logout failed:", error);
+                    localStorage.removeItem("userEmail");
+                    window.location.href = "/login";
+                });
+            }).catch(error => {
+                console.error("Firebase sign out failed:", error);
+                alert("Logout failed. Please try again.");
+            });
+        });
+
+        // --- Admin Actions ---
+        
+        // Handle discussion form submission
+        createDiscussionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const question = discussionQuestionInput.value.trim();
+            if (!question) return;
+
+            try {
+                const response = await fetch('/create_discussion', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ question: question })
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert("Discussion topic posted successfully!");
+                    discussionQuestionInput.value = ''; // Clear the form
+                } else {
+                    alert("Failed to post discussion: " + data.error);
+                }
+            } catch (error) {
+                console.error("Failed to post discussion:", error);
+                alert("An error occurred while posting the discussion.");
+            }
+        });
+
+        // --- Analytics (Online Users) ---
+        async function fetchOnlineUsers() {
+            try {
+                const response = await fetch('/online_users');
+                const data = await response.json();
+                onlineUsersEl.textContent = data.count;
+            } catch (error) {
+                console.error("Failed to fetch online users:", error);
+                onlineUsersEl.textContent = "N/A";
+            }
+        }
+        
+        // Fetch data on page load and every 30 seconds
+        fetchOnlineUsers();
+        setInterval(fetchOnlineUsers, 30000); // Poll every 30 seconds
+    </script>
 </body>
 </html>
-
