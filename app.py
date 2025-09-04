@@ -91,7 +91,7 @@ ALLOWED_USERS = {
     "dangalan20@gmail.com",
     "muhammadsadanu@gmail.com",
     "rukitafida@gmail.com",
-    "winter0019@protonmail.com",             
+    "winter0019@protonmail.com",
     "winter19@gmail.com",
     "adedoyinfehintola@gmail.com",
 }
@@ -162,6 +162,14 @@ def login_required(f):
             return redirect(url_for("login"))
         return f(*args, **kwargs)
     return wrapper
+
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        if session.get('user_email') != ADMIN_USER:
+            return redirect(url_for('login'))
+        return f(*args, **kwargs)
+    return decorated_function
 
 def log_quiz_activity(user, action, details=""):
     logger.info(f"{user} | {action} | {details}")
@@ -364,7 +372,14 @@ def logout():
 def dashboard():
     user = session["user_email"]
     is_admin = (user == ADMIN_USER)
+    if is_admin:
+        return redirect(url_for("admin_dashboard"))
     return render_template("dashboard.html", email=user, is_admin=is_admin)
+
+@app.route("/admin_dashboard")
+@admin_required
+def admin_dashboard():
+    return render_template("admin_dashboard.html", email=session["user_email"])
 
 # --- Free Trial Quiz ---
 @app.route("/free_trial_quiz")
@@ -530,10 +545,8 @@ def discussion_index():
 
 # NEW: Admin route to create a new discussion question
 @app.route("/create_discussion", methods=["POST"])
+@admin_required
 def create_discussion():
-    if session.get("user_email") != ADMIN_USER:
-        return jsonify({"error": "Unauthorized"}), 403
-    
     data = request.get_json()
     question = data.get("question")
     if not question:
@@ -544,7 +557,7 @@ def create_discussion():
             discussion_ref = db.collection("discussions").document("current_topic")
             discussion_ref.set({
                 "question": question,
-                "created_by": ADMIN_USER,
+                "created_by": session.get("user_email"),
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "status": "active"
             })
@@ -667,8 +680,3 @@ def summarize_discussion():
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
-
-
-
-
-
