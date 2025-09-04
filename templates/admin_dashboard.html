@@ -34,20 +34,21 @@
   </div>
 
   <script>
-    const ADMIN_EMAILS = ["admin@nysc.gov.ng"]; // 🔑 add more admins here
-    const email = localStorage.getItem("userEmail");
+    const ADMIN_EMAILS = ["admin@nysc.gov.ng", "dangalan@gmail.com"]; // 🔑 add more admins here
+    const email = localStorage.getItem("userEmail");
 
-    const status = document.getElementById("status");
-    const content = document.getElementById("content");
+    const status = document.getElementById("status");
+    const content = document.getElementById("content");
 
-    if (!email) {
-      window.location.href = "/login";
-    } else if (!ADMIN_EMAILS.includes(email)) {
-      window.location.href = "/quiz"; // 🚫 not admin
-    } else {
-      status.textContent = `✅ Logged in as Admin: ${email}`;
-      content.classList.remove("hidden");
-    }
-  </script>
+    if (!email) {
+      window.location.href = "/login";
+    } else if (!ADMIN_EMAILS.includes(email)) {
+      window.location.href = "/quiz"; // 🚫 not admin
+    } else {
+      status.textContent = `✅ Logged in as Admin: ${email}`;
+      content.classList.remove("hidden");
+    }
+</script>
 </body>
 </html>
+
