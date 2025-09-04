@@ -124,10 +124,7 @@ def extract_text_from_file(file_path):
         logger.error(f"File extraction failed: {e}")
     return (text or "").strip()
 
-# NEW AND IMPROVED: A pre-processing function to clean the text
 def preprocess_text_for_quiz(text):
-    # This regex removes lines that look like "Chapter X" or "Section Y"
-    # It also handles variations like "CHAPTER 1", "section 2.", etc.
     lines = text.split('\n')
     processed_lines = []
     for line in lines:
@@ -135,12 +132,17 @@ def preprocess_text_for_quiz(text):
         # Regex to catch lines that are just "Chapter X" or "Section Y"
         if re.match(r'^(Chapter|Section)\s+\S+$', stripped_line, re.I):
             continue
-        # NEW: Regex to catch lines that start with a 6-digit code followed by text
+        # UPDATED: Regex to catch lines that start with a 6-digit code followed by text
         if re.match(r'^\s*\d{6}\s+\S+', stripped_line):
             continue
         processed_lines.append(line)
     
-    return '\n'.join(processed_lines)
+    # NEW: Remove lines that look like "Question X" or "Answer"
+    processed_text = '\n'.join(processed_lines)
+    processed_text = re.sub(r'Questions?\s*\d*\s*[\.\-]', '', processed_text, flags=re.I)
+    processed_text = re.sub(r'\s*Answer\s*[\.\-]', '', processed_text, flags=re.I)
+    
+    return processed_text.strip()
 
 def generate_cache_key(base, ttl_minutes, prefix=""):
     h = hashlib.md5(base.encode()).hexdigest()
