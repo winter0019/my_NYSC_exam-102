@@ -20,8 +20,6 @@ from dotenv import load_dotenv
 
 import requests
 import tempfile
-import tempfile, os
-from werkzeug.utils import secure_filename
 import docx
 import PyPDF2
 import pytesseract
@@ -396,7 +394,7 @@ def generate_free_quiz():
             return jsonify(cached)
 
         quiz = call_gemini_for_quiz(context_text, subject, grade)
-        cache_set(cache_key, quiz, 10)
+        cache_set(cache_key, quiz, ttl_minutes=10)
         log_quiz_activity(session["user_email"], "free_trial", f"GL={grade}, Sub={subject}")
         return jsonify(quiz)
 
@@ -430,16 +428,16 @@ def generate_quiz():
 
         grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
+        filename = secure_filename(file.filename)
 
         # 2. Save temp file with correct extension
-        filename = secure_filename(file.filename)
         suffix = os.path.splitext(filename)[1] or ".pdf"  # fallback if no extension
-
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             file.save(tmp.name)
             tmp_path = tmp.name
 
         # 3. Extract text from file
+        context_text = ""
         try:
             context_text = extract_text_from_file(tmp_path)
         finally:
@@ -452,29 +450,20 @@ def generate_quiz():
             return jsonify({"error": "Could not extract text from uploaded file"}), 400
 
         # 4. Call Gemini with cache
-        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "genquiz")
+        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 60, "genquiz")
         cached = cache_get(cache_key)
         if cached:
+            log_quiz_activity(session["user_email"], "cache_hit", filename)
             return jsonify(cached)
 
         quiz = call_gemini_for_quiz(context_text, subject, grade)
 
-        # 5. Log quiz for debugging
-        app.logger.info("Generated quiz: %s", quiz)
-
+        # 5. Check if quiz was generated successfully
         if not quiz.get("questions"):
             return jsonify({"error": "No questions generated"}), 500
 
         # 6. Cache and return
-        cache_set(cache_key, quiz, ttl=3600)
-        return jsonify(quiz)
-
-    except Exception as e:
-        app.logger.error(f"Quiz generation failed: {e}", exc_info=True)
-        return jsonify({"error": "Internal server error"}), 500
-
-
-        cache_set(cache_key, quiz, 10)
+        cache_set(cache_key, quiz, ttl_minutes=60)
         log_quiz_activity(session["user_email"], "generate_quiz", filename)
         return jsonify(quiz)
 
@@ -482,84 +471,6 @@ def generate_quiz():
         import traceback
         app.logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": "Quiz generation failed"}), 500
-
-
-        # Normalize each question
-        safe_questions = []
-        for q in quiz["questions"]:
-            question = q.get("question", "").strip()
-            options = q.get("options", []) or []
-            answer = q.get("answer", "").strip()
-
-            # Ensure at least 4 options (pad with N/A if missing)
-            if isinstance(options, dict):
-                keys = ["A", "B", "C", "D"]
-                options = [options.get(k) for k in keys if options.get(k)]
-            while len(options) < 4:
-                options.append("N/A")
-            options = options[:4]
-
-            if question and options:
-                safe_questions.append({
-                    "question": question,
-                    "options": options,
-                    "answer": answer if answer in options else ""
-                })
-
-        if not safe_questions:
-            logger.error("Quiz generation produced no valid questions")
-            return jsonify({"error": "Quiz generation failed (empty quiz)"}), 500
-
-        final_quiz = {"questions": safe_questions}
-
-        # Cache + log
-        cache_set(cache_key, final_quiz, 10)
-        log_quiz_activity(session["user_email"], "generate_quiz", filename)
-
-        return jsonify(final_quiz)
-
-    except Exception as e:
-        logger.error(f"/generate_quiz error: {e}")
-        return jsonify({"error": "Quiz generation failed"}), 500
-
-        # Normalize each question
-        safe_questions = []
-        for q in quiz["questions"]:
-            question = q.get("question", "").strip()
-            options = q.get("options", []) or []
-            answer = q.get("answer", "").strip()
-
-            # Ensure at least 4 options (pad with N/A if missing)
-            if isinstance(options, dict):
-                keys = ["A", "B", "C", "D"]
-                options = [options.get(k) for k in keys if options.get(k)]
-            while len(options) < 4:
-                options.append("N/A")
-            options = options[:4]
-
-            if question and options:
-                safe_questions.append({
-                    "question": question,
-                    "options": options,
-                    "answer": answer if answer in options else ""
-                })
-
-        if not safe_questions:
-            logger.error("Quiz generation produced no valid questions")
-            return jsonify({"error": "Quiz generation failed (empty quiz)"}), 500
-
-        final_quiz = {"questions": safe_questions}
-
-        # Cache + log
-        cache_set(cache_key, final_quiz, 10)
-        log_quiz_activity(session["user_email"], "generate_quiz", filename)
-
-        return jsonify(final_quiz)
-
-    except Exception as e:
-        logger.error(f"/generate_quiz error: {e}")
-        return jsonify({"error": "Quiz generation failed"}), 500
-
 
 # --- Discussion (template-driven pages) ---
 @app.route("/discussion", methods=["GET", "POST"])
@@ -667,19 +578,3 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
