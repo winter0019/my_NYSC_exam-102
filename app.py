@@ -95,6 +95,7 @@ ALLOWED_USERS = {
     "adedoyinfehintola@gmail.com",
 }
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
+ADMIN_USER = "dangalan@gmail.com"
 
 rooms = {}
 cache = {}
@@ -129,19 +130,14 @@ def preprocess_text_for_quiz(text):
     processed_lines = []
     for line in lines:
         stripped_line = line.strip()
-        # Regex to catch lines that are just "Chapter X" or "Section Y"
         if re.match(r'^(Chapter|Section)\s+\S+$', stripped_line, re.I):
             continue
-        # UPDATED: Regex to catch lines that start with a 6-digit code followed by text
         if re.match(r'^\s*\d{6}\s+\S+', stripped_line):
             continue
         processed_lines.append(line)
-    
-    # NEW: Remove lines that look like "Question X" or "Answer"
     processed_text = '\n'.join(processed_lines)
     processed_text = re.sub(r'Questions?\s*\d*\s*[\.\-]', '', processed_text, flags=re.I)
     processed_text = re.sub(r'\s*Answer\s*[\.\-]', '', processed_text, flags=re.I)
-    
     return processed_text.strip()
 
 def generate_cache_key(base, ttl_minutes, prefix=""):
@@ -347,7 +343,7 @@ def login():
 
             if resp.status_code == 200:
                 session["user_email"] = email
-                role = "admin" if email == "dangalan@gmail.com" else "user"
+                role = "admin" if email == ADMIN_USER else "user"
                 return jsonify({"ok": True, "role": role})
             else:
                 return jsonify({"ok": False, "error": "Invalid credentials"}), 401
@@ -366,9 +362,8 @@ def logout():
 @login_required
 def dashboard():
     user = session["user_email"]
-    if user == "dangalan@gmail.com":
-        return render_template("admin_dashboard.html", email=user)
-    return render_template("dashboard.html", email=user)
+    is_admin = (user == ADMIN_USER)
+    return render_template("dashboard.html", email=user, is_admin=is_admin)
 
 # --- Free Trial Quiz ---
 @app.route("/free_trial_quiz")
@@ -476,7 +471,7 @@ def generate_quiz():
         app.logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": "Quiz generation failed"}), 500
 
-# --- NEW ROUTE: Quiz Scoring ---
+# --- Quiz Scoring ---
 @app.route("/submit_quiz", methods=["POST"])
 @login_required
 def submit_quiz():
@@ -506,11 +501,9 @@ def submit_quiz():
 
     log_quiz_activity(session["user_email"], "submit_quiz", f"Score: {score}/{total_questions}")
     
-    # NEW: Save the quiz result to the user's profile in the database
     user_email = session.get("user_email")
     if db and user_email:
         try:
-            # Create a document in a 'quiz_results' subcollection under the user's email document
             quiz_results_ref = db.collection("users").document(user_email).collection("quiz_results")
             quiz_results_ref.add({
                 "score": score,
@@ -528,110 +521,148 @@ def submit_quiz():
         "results": results
     })
 
-# --- Discussion (template-driven pages) ---
-@app.route("/discussion", methods=["GET", "POST"])
+# --- Discussion (Template-driven pages) ---
+@app.route("/discussion", methods=["GET"])
 @login_required
 def discussion_index():
     return render_template("discussion.html", email=session["user_email"])
 
-@app.route("/discussion/<room_id>", methods=["GET"])
-@login_required
-def join_discussion(room_id):
+# NEW: Admin route to create a new discussion question
+@app.route("/create_discussion", methods=["POST"])
+def create_discussion():
+    if session.get("user_email") != ADMIN_USER:
+        return jsonify({"error": "Unauthorized"}), 403
+    
+    data = request.get_json()
+    question = data.get("question")
+    if not question:
+        return jsonify({"error": "Discussion question is required"}), 400
+    
     if db:
-        doc = db.collection("discussion_rooms").document(room_id).get()
-        if doc.exists:
-            return render_template("room.html", room_id=room_id, email=session["user_email"])
-    if room_id in rooms:
-        return render_template("room.html", room_id=room_id, email=session["user_email"])
-    return jsonify({"error": "Room not found"}), 404
-
-@app.route("/create_room", methods=["POST"])
-@login_required
-def create_room():
-    data = request.get_json(force=True, silent=True) or {}
-    question = data.get("question", "General topic")
-    room_id = str(uuid.uuid4())
-    room_data = {
-        "question": question,
-        "created_by": session["user_email"],
-        "messages": [],
-        "created_at": datetime.now(),
-        "last_activity": datetime.now()
-    }
-    if db:
-        db.collection("discussion_rooms").document(room_id).set(room_data)
-    else:
-        rooms[room_id] = room_data
-    return jsonify({"room_id": room_id})
-
-@app.route("/room/<room_id>/messages", methods=["GET", "POST"])
-@login_required
-def handle_messages(room_id):
-    if request.method == "POST":
-        data = request.get_json(force=True, silent=True) or {}
-        message = {"user": session["user_email"], "text": data.get("text", ""), "time": datetime.now()}
-        if db:
-            db.collection("discussion_rooms").document(room_id).update({
-                "messages": firestore.ArrayUnion([message]),
-                "last_activity": firestore.SERVER_TIMESTAMP
+        try:
+            discussion_ref = db.collection("discussions").document("current_topic")
+            discussion_ref.set({
+                "question": question,
+                "created_by": ADMIN_USER,
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "status": "active"
             })
-        else:
-            if room_id not in rooms:
-                return jsonify({"error": "Room not found"}), 404
-            rooms[room_id]["messages"].append(message)
-            rooms[room_id]["last_activity"] = datetime.now()
-        return jsonify({"success": True})
+            # Clear previous messages
+            messages = db.collection("discussions").document("current_topic").collection("messages").list_documents()
+            for message in messages:
+                message.delete()
+            logger.info(f"New discussion created: '{question}'")
+            return jsonify({"success": True, "message": "Discussion topic created."})
+        except Exception as e:
+            logger.error(f"Failed to create discussion: {e}")
+            return jsonify({"error": "Failed to create discussion"}), 500
+    return jsonify({"error": "Database not configured"}), 500
 
+# NEW: Route to get the current discussion topic
+@app.route("/get_current_discussion", methods=["GET"])
+@login_required
+def get_current_discussion():
     if db:
-        doc = db.collection("discussion_rooms").document(room_id).get()
-        if doc.exists:
-            return jsonify(doc.to_dict().get("messages", []))
-    elif room_id in rooms:
-        return jsonify(rooms[room_id].get("messages", []))
+        try:
+            discussion_ref = db.collection("discussions").document("current_topic")
+            doc = discussion_ref.get()
+            if doc.exists:
+                return jsonify(doc.to_dict())
+            else:
+                return jsonify({"question": "No active discussion topic."})
+        except Exception as e:
+            logger.error(f"Failed to get discussion topic: {e}")
+            return jsonify({"error": "Failed to get discussion topic"}), 500
+    return jsonify({"question": "No active discussion topic."})
+
+# NEW: Route to post messages to the current discussion
+@app.route("/post_discussion_message", methods=["POST"])
+@login_required
+def post_discussion_message():
+    data = request.get_json()
+    message_text = data.get("message")
+    if not message_text:
+        return jsonify({"error": "Message text is required"}), 400
+    
+    user_email = session.get("user_email")
+    if db and user_email:
+        try:
+            messages_ref = db.collection("discussions").document("current_topic").collection("messages")
+            messages_ref.add({
+                "user": user_email,
+                "text": message_text,
+                "timestamp": firestore.SERVER_TIMESTAMP
+            })
+            return jsonify({"success": True})
+        except Exception as e:
+            logger.error(f"Failed to post message: {e}")
+            return jsonify({"error": "Failed to post message"}), 500
+    return jsonify({"error": "Database not configured or user not logged in"}), 500
+
+# NEW: Route to get all messages for the current discussion
+@app.route("/get_discussion_messages", methods=["GET"])
+@login_required
+def get_discussion_messages():
+    if db:
+        try:
+            messages_ref = db.collection("discussions").document("current_topic").collection("messages")
+            messages = messages_ref.order_by("timestamp").stream()
+            message_list = []
+            for msg in messages:
+                data = msg.to_dict()
+                message_list.append({
+                    "user": data.get("user"),
+                    "text": data.get("text"),
+                    "timestamp": data.get("timestamp").isoformat() if data.get("timestamp") else None
+                })
+            return jsonify(message_list)
+        except Exception as e:
+            logger.error(f"Failed to get messages: {e}")
+            return jsonify({"error": "Failed to get messages"}), 500
     return jsonify([])
 
-@app.route("/summarize/<room_id>", methods=["POST"])
+# NEW: Route to get the final summary of the discussion
+@app.route("/summarize_discussion", methods=["POST"])
 @login_required
-@limiter.limit("3 per hour")
-def summarize_room(room_id):
-    try:
-        room = None
-        messages = []
-        if db:
-            doc = db.collection("discussion_rooms").document(room_id).get()
+@limiter.limit("10 per day")
+def summarize_discussion():
+    if db:
+        try:
+            # Check if summary already exists and is recent
+            discussion_ref = db.collection("discussions").document("current_topic")
+            doc = discussion_ref.get()
             if doc.exists:
-                room = doc.to_dict()
-                messages = room.get("messages", [])
-        if not room:
-            room = rooms.get(room_id)
-            messages = room.get("messages", []) if room else []
+                data = doc.to_dict()
+                if "final_summary" in data and "summary_timestamp" in data:
+                    summary_time = data["summary_timestamp"]
+                    if isinstance(summary_time, datetime) and (datetime.now() - summary_time).total_seconds() < 3600:
+                        return jsonify({"summary": data["final_summary"]})
+            
+            # Fetch all messages
+            messages_ref = db.collection("discussions").document("current_topic").collection("messages")
+            messages = messages_ref.order_by("timestamp").stream()
+            discussion_text = "\n".join([f"{msg.to_dict().get('user')}: {msg.to_dict().get('text')}" for msg in messages])
+            
+            if not discussion_text:
+                return jsonify({"error": "No discussion to summarize"}), 400
 
-        if not room:
-            return jsonify({"error": "Room not found"}), 404
-        if len(messages) < 3:
-            return jsonify({"error": "Not enough messages"}), 400
+            # Call Gemini to summarize
+            prompt = f"Summarize the following discussion:\n\n{discussion_text}"
+            model = genai.GenerativeModel("gemini-1.5-flash")
+            response = model.generate_content(prompt)
+            summary = (response.text or "").strip()
 
-        discussion_text = "\n".join([f"{m['user']}: {m['text']}" for m in messages])
-        prompt = f"Summarize discussion on '{room['question']}'.\n\n{discussion_text}"
-
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        summary = (response.text or "").strip()
-
-        if db:
-            db.collection("discussion_rooms").document(room_id).update({
-                "final_answer": summary,
-                "last_activity": firestore.SERVER_TIMESTAMP
+            # Save the summary to the discussion document
+            discussion_ref.update({
+                "final_summary": summary,
+                "summary_timestamp": firestore.SERVER_TIMESTAMP
             })
-        else:
-            room["final_answer"] = summary
-            room["last_activity"] = datetime.now()
-        return jsonify({"summary": summary})
-    except Exception as e:
-        logger.error(f"Summarize error: {e}")
-        return jsonify({"error": "Summarization failed"}), 500
+            return jsonify({"summary": summary})
+        except Exception as e:
+            logger.error(f"Failed to summarize discussion: {e}")
+            return jsonify({"error": "Summarization failed"}), 500
+    return jsonify({"error": "Database not configured"}), 500
 
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
-
