@@ -25,10 +25,8 @@ import PyPDF2
 import pytesseract
 from PIL import Image
 
-# NEW: Import the GNews library
 from gnews import GNews
 
-# Firebase (admin SDK – optional, used when FIREBASE_SERVICE_ACCOUNT is present)
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
 
@@ -57,7 +55,6 @@ db = None
 try:
     firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
     if firebase_json:
-        # NOTE: prefer json.loads over eval for safety
         cred_dict = json.loads(firebase_json) if isinstance(firebase_json, str) else firebase_json
         cred = credentials.Certificate(cred_dict)
         firebase_admin.initialize_app(cred)
@@ -99,7 +96,7 @@ ALLOWED_USERS = {
 }
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
 
-rooms = {}  # in-memory fallback when Firestore isn't available
+rooms = {}
 cache = {}
 
 # --- Helpers ---
@@ -108,7 +105,7 @@ def allowed_file(filename):
 
 def extract_text_from_file(file_path):
     text = ""
-    ext = os.path.splitext(file_path)[1].lower().lstrip(".")  # safer extension handling
+    ext = os.path.splitext(file_path)[1].lower().lstrip(".")
     try:
         if ext == "pdf":
             with open(file_path, "rb") as f:
@@ -126,6 +123,19 @@ def extract_text_from_file(file_path):
     except Exception as e:
         logger.error(f"File extraction failed: {e}")
     return (text or "").strip()
+
+# NEW: A pre-processing function to clean the text
+def preprocess_text_for_quiz(text):
+    # This regex removes lines that look like "Chapter X" or "Section Y"
+    # It also handles variations like "CHAPTER 1", "section 2.", etc.
+    lines = text.split('\n')
+    processed_lines = []
+    for line in lines:
+        if re.match(r'^(Chapter|Section)\s+\S+', line.strip(), re.I):
+            continue
+        processed_lines.append(line)
+    
+    return '\n'.join(processed_lines)
 
 def generate_cache_key(base, ttl_minutes, prefix=""):
     h = hashlib.md5(base.encode()).hexdigest()
@@ -164,26 +174,17 @@ def before_request():
 
 # --- Robust Gemini quiz parsing ---
 def _extract_first_json_block(text: str):
-    """
-    Try to pull the first JSON block from a possibly-markdown response.
-    """
     if not text:
         return None
-    # ```json ... ``` fenced
     m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
     if m:
         return m.group(1)
-    # Any {...} top-level looking JSON
     m = re.search(r"(\{(?:.|\n)*\})", text)
     if m:
         return m.group(1)
     return None
 
 def quiz_to_uniform_schema(quiz_obj):
-    """
-    Normalize quiz data into a safe schema:
-    { "questions": [ { "question": str, "options": [str, str, str, str], "answer": str } ] }
-    """
     out = {"questions": []}
     items = quiz_obj.get("questions") or quiz_obj.get("quiz") or []
 
@@ -192,23 +193,19 @@ def quiz_to_uniform_schema(quiz_obj):
         options = q.get("options") or q.get("choices") or []
         answer = str(q.get("answer") or q.get("correct") or q.get("correct_answer") or "").strip()
 
-        # Convert dict → list in A–D order
         if isinstance(options, dict):
             keys = ["A", "B", "C", "D"]
             options = [options.get(k, "").strip() for k in keys if options.get(k)]
 
-        # Clean list
         if isinstance(options, list):
             options = [str(o).strip() for o in options if o]
         else:
             options = []
 
-        # Guarantee exactly 4 options (pad with N/A or trim)
         while len(options) < 4:
             options.append("N/A")
         options = options[:4]
 
-        # Validate answer: must be inside options
         if answer not in options:
             answer = ""
 
@@ -218,17 +215,9 @@ def quiz_to_uniform_schema(quiz_obj):
                 "options": options,
                 "answer": answer
             })
-
     return out
 
-
-# --- UPDATED: call_gemini_for_quiz to be more specific ---
 def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
-    """
-    Ask Gemini to return strict JSON for MCQs.
-    The prompt is now more specific to prevent general questions.
-    """
-    # UPDATED: The prompt is now more explicit about focusing on content.
     system_prompt = f"""
 You are a question generator for NYSC exam prep.
 Return STRICT JSON ONLY with this shape:
@@ -267,13 +256,11 @@ Context (trimmed):
 
     raw = (response.text or "").strip()
 
-    # Try strict JSON parse
     try:
         return quiz_to_uniform_schema(json.loads(raw))
     except Exception:
         pass
 
-    # Try extracting a JSON block
     jb = _extract_first_json_block(raw)
     if jb:
         try:
@@ -281,7 +268,6 @@ Context (trimmed):
         except Exception:
             pass
 
-    # Last resort: naive parse (Q + A–D lines)
     questions = []
     blocks = re.split(r"\n\s*\n", raw)
     for b in blocks:
@@ -295,14 +281,9 @@ Context (trimmed):
             while len(opts) < 4:
                 opts.append("N/A")
             questions.append({"question": q, "options": opts[:4], "answer": ""})
-
     return {"questions": questions[:5]}
 
-# NEW: Function to fetch recent news using GNews
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
-    """
-    Fetches recent news articles from Google News based on a search query.
-    """
     try:
         google_news = GNews(max_results=max_results, language=language, country=country)
         news_articles = google_news.get_news(query)
@@ -315,13 +296,11 @@ def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
             context_text += f"Title: {article.get('title', '')}\n"
             context_text += f"Description: {article.get('description', '')}\n"
             context_text += f"Published Date: {article.get('published date', '')}\n\n"
-
         return context_text
 
     except Exception as e:
         logger.error(f"GNews fetch failed: {e}")
         return f"An error occurred while fetching news: {e}"
-
 
 # --- Routes ---
 @app.route("/")
@@ -335,7 +314,6 @@ def health():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if request.method == "POST":
-        # Extract request data
         if request.is_json:
             data = request.get_json(silent=True) or {}
             email = data.get("email", "").lower()
@@ -344,7 +322,6 @@ def login():
             email = request.form.get("email", "").lower()
             password = request.form.get("password", "")
 
-        # Check allowed users
         if email not in ALLOWED_USERS:
             return jsonify({"ok": False, "error": "Unauthorized email"}), 401
 
@@ -354,7 +331,6 @@ def login():
                 logger.error("FIREBASE_API_KEY not set")
                 return jsonify({"ok": False, "error": "Auth service unavailable"}), 500
 
-            # Call Firebase Auth REST API
             resp = requests.post(
                 "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword",
                 params={"key": api_key},
@@ -368,20 +344,16 @@ def login():
                 return jsonify({"ok": True, "role": role})
             else:
                 return jsonify({"ok": False, "error": "Invalid credentials"}), 401
-
         except Exception as e:
             logger.error(f"Login failed: {e}")
             return jsonify({"ok": False, "error": "Authentication error"}), 500
 
-    # GET request → return login page
     return render_template("login.html")
-
 
 @app.route("/logout", methods=["POST"])
 def logout():
     session.clear()
     return jsonify({"ok": True})
-
 
 @app.route("/dashboard")
 @login_required
@@ -391,33 +363,22 @@ def dashboard():
         return render_template("admin_dashboard.html", email=user)
     return render_template("dashboard.html", email=user)
 
-
 # --- Free Trial Quiz ---
 @app.route("/free_trial_quiz")
 @login_required
 def free_trial_quiz():
     return render_template("free_trial_quiz.html", email=session["user_email"])
 
-
 @app.route("/generate_free_quiz", methods=["POST"])
 @login_required
 def generate_free_quiz():
-    """
-    Generate a free trial quiz without requiring a document upload.
-    Input (JSON):
-      - grade
-      - subject
-    Output:
-      { "questions": [ { "question": str, "options": [..], "answer": str } ] }
-    """
     try:
         data = request.get_json(force=True, silent=True) or {}
         grade = data.get("gl") or data.get("grade") or "GL10"
         subject = data.get("subject") or "General Knowledge"
 
         context_text = ""
-        # UPDATED: Handle "Current Affairs" and "Global Politics" using GNews
-        if subject.lower() == "global politics" or subject.lower() == "current affairs":
+        if subject.lower() in ["global politics", "current affairs"]:
             context_text = fetch_gnews_text("current affairs Nigeria politics")
         elif subject.lower() == "international bodies and acronyms":
             context_text = """
@@ -434,7 +395,6 @@ def generate_free_quiz():
             """
         else:
             context_text = f"Trial quiz for {subject} at grade {grade}"
-
 
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "freequiz")
         cached = cache_get(cache_key)
@@ -455,18 +415,11 @@ def generate_free_quiz():
 def quiz():
     return render_template("quiz.html", email=session["user_email"])
 
-
 # --- Document Upload Quiz ---
 @app.route("/generate_quiz", methods=["POST"])
 @login_required
 def generate_quiz():
-    """
-    Handle document upload, extract text, and generate quiz with Gemini.
-    Responds with:
-      { "questions": [ { "question": str, "options": [..], "answer": str } ] }
-    """
     try:
-        # 1. Check uploaded file
         if "document" not in request.files:
             return jsonify({"error": "No file uploaded (field: 'document')"}), 400
 
@@ -478,16 +431,16 @@ def generate_quiz():
         subject = request.form.get("subject", "General Knowledge")
         filename = secure_filename(file.filename)
 
-        # 2. Save temp file with correct extension
-        suffix = os.path.splitext(filename)[1] or ".pdf"  # fallback if no extension
+        suffix = os.path.splitext(filename)[1] or ".pdf"
         with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
             file.save(tmp.name)
             tmp_path = tmp.name
 
-        # 3. Extract text from file
         context_text = ""
         try:
-            context_text = extract_text_from_file(tmp_path)
+            # UPDATED: Pre-process text to remove structural headers
+            raw_text = extract_text_from_file(tmp_path)
+            context_text = preprocess_text_for_quiz(raw_text)
         finally:
             try:
                 os.unlink(tmp_path)
@@ -495,9 +448,8 @@ def generate_quiz():
                 app.logger.warning(f"Could not delete temp file: {cleanup_err}")
 
         if not context_text:
-            return jsonify({"error": "Could not extract text from uploaded file"}), 400
+            return jsonify({"error": "Could not extract text from uploaded file or text was too sparse"}), 400
 
-        # 4. Call Gemini with cache
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 60, "genquiz")
         cached = cache_get(cache_key)
         if cached:
@@ -506,11 +458,9 @@ def generate_quiz():
 
         quiz = call_gemini_for_quiz(context_text, subject, grade)
 
-        # 5. Check if quiz was generated successfully
         if not quiz.get("questions"):
             return jsonify({"error": "No questions generated"}), 500
 
-        # 6. Cache and return
         cache_set(cache_key, quiz, ttl_minutes=60)
         log_quiz_activity(session["user_email"], "generate_quiz", filename)
         return jsonify(quiz)
@@ -524,9 +474,6 @@ def generate_quiz():
 @app.route("/submit_quiz", methods=["POST"])
 @login_required
 def submit_quiz():
-    """
-    Receives user answers, calculates score, and returns results.
-    """
     data = request.get_json()
     user_answers = data.get("answers", {})
     quiz_data = data.get("quiz_data", {})
