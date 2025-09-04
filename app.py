@@ -90,7 +90,7 @@ ALLOWED_USERS = {
     "isadeeq17@gmail.com",
     "muhammadsadanu@gmail.com",
     "rukitafida@gmail.com",
-    "dangalan20@gmail.com",
+    "dangalan20@gmail.com",    ADMIN
     "winter19@gmail.com",
     "adedoyinfehintola@gmail.com",
 }
@@ -666,3 +666,4 @@ def summarize_discussion():
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
