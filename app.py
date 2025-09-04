@@ -124,14 +124,19 @@ def extract_text_from_file(file_path):
         logger.error(f"File extraction failed: {e}")
     return (text or "").strip()
 
-# NEW: A pre-processing function to clean the text
+# NEW AND IMPROVED: A pre-processing function to clean the text
 def preprocess_text_for_quiz(text):
     # This regex removes lines that look like "Chapter X" or "Section Y"
     # It also handles variations like "CHAPTER 1", "section 2.", etc.
     lines = text.split('\n')
     processed_lines = []
     for line in lines:
-        if re.match(r'^(Chapter|Section)\s+\S+', line.strip(), re.I):
+        stripped_line = line.strip()
+        # Regex to catch lines that are just "Chapter X" or "Section Y"
+        if re.match(r'^(Chapter|Section)\s+\S+$', stripped_line, re.I):
+            continue
+        # NEW: Regex to catch lines that start with a 6-digit code followed by text
+        if re.match(r'^\s*\d{6}\s+\S+', stripped_line):
             continue
         processed_lines.append(line)
     
@@ -438,7 +443,6 @@ def generate_quiz():
 
         context_text = ""
         try:
-            # UPDATED: Pre-process text to remove structural headers
             raw_text = extract_text_from_file(tmp_path)
             context_text = preprocess_text_for_quiz(raw_text)
         finally:
