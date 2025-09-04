@@ -228,6 +228,7 @@ def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
     Ask Gemini to return strict JSON for MCQs.
     The prompt is now more specific to prevent general questions.
     """
+    # UPDATED: The prompt is now more explicit about focusing on content.
     system_prompt = f"""
 You are a question generator for NYSC exam prep.
 Return STRICT JSON ONLY with this shape:
@@ -246,7 +247,7 @@ Rules:
 - 5 questions.
 - 4 options each.
 - Options should be concise.
-- **Make questions based ONLY on the provided context.**
+- **Make questions based ONLY on the provided context. Focus on the core subject matter, not on chapters, sections, or document formatting.**
 - Tailor the difficulty to a {grade} level.
 - Focus on the {subject} section of the context.
 - No prose, no explanation, no markdown, ONLY pure JSON.
@@ -415,9 +416,9 @@ def generate_free_quiz():
         subject = data.get("subject") or "General Knowledge"
 
         context_text = ""
-        # NEW: Handle specific subjects
-        if subject.lower() == "global politics":
-            context_text = fetch_gnews_text("global politics")
+        # UPDATED: Handle "Current Affairs" and "Global Politics" using GNews
+        if subject.lower() == "global politics" or subject.lower() == "current affairs":
+            context_text = fetch_gnews_text("current affairs Nigeria politics")
         elif subject.lower() == "international bodies and acronyms":
             context_text = """
             What does FIFA stand for? Fédération Internationale de Football Association.
