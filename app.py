@@ -25,6 +25,9 @@ import PyPDF2
 import pytesseract
 from PIL import Image
 
+# NEW: Import the GNews library
+from gnews import GNews
+
 # Firebase (admin SDK – optional, used when FIREBASE_SERVICE_ACCOUNT is present)
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
@@ -294,6 +297,31 @@ Context (trimmed):
 
     return {"questions": questions[:5]}
 
+# NEW: Function to fetch recent news using GNews
+def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
+    """
+    Fetches recent news articles from Google News based on a search query.
+    """
+    try:
+        google_news = GNews(max_results=max_results, language=language, country=country)
+        news_articles = google_news.get_news(query)
+
+        if not news_articles:
+            return "No recent articles found for this topic."
+
+        context_text = ""
+        for article in news_articles:
+            context_text += f"Title: {article.get('title', '')}\n"
+            context_text += f"Description: {article.get('description', '')}\n"
+            context_text += f"Published Date: {article.get('published date', '')}\n\n"
+
+        return context_text
+
+    except Exception as e:
+        logger.error(f"GNews fetch failed: {e}")
+        return f"An error occurred while fetching news: {e}"
+
+
 # --- Routes ---
 @app.route("/")
 def home():
@@ -386,8 +414,26 @@ def generate_free_quiz():
         grade = data.get("gl") or data.get("grade") or "GL10"
         subject = data.get("subject") or "General Knowledge"
 
-        # Keep consistent with generate_quiz: context_text = source, not a system prompt
-        context_text = f"Trial quiz for {subject} at grade {grade}"
+        context_text = ""
+        # NEW: Handle specific subjects
+        if subject.lower() == "global politics":
+            context_text = fetch_gnews_text("global politics")
+        elif subject.lower() == "international bodies and acronyms":
+            context_text = """
+            What does FIFA stand for? Fédération Internationale de Football Association.
+            What does FAO stand for? Food and Agriculture Organization.
+            What does ECOWAS stand for? Economic Community of West African States.
+            What does NAFDAC stand for? National Agency for Food and Drug Administration and Control.
+            What does NSCDC stand for? Nigeria Security and Civil Defence Corps.
+            What does WHO stand for? World Health Organization.
+            What does UNICEF stand for? United Nations Children's Fund.
+            What does AU stand for? African Union.
+            What does NATO stand for? North Atlantic Treaty Organization.
+            What does OPEC stand for? Organization of the Petroleum Exporting Countries.
+            """
+        else:
+            context_text = f"Trial quiz for {subject} at grade {grade}"
+
 
         cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "freequiz")
         cached = cache_get(cache_key)
