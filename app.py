@@ -90,12 +90,12 @@ ALLOWED_USERS = {
     "isadeeq17@gmail.com",
     "muhammadsadanu@gmail.com",
     "rukitafida@gmail.com",
-    "dangalan20@gmail.com",    ADMIN
+    "dangalan20@gmail.com",             ADMIN
     "winter19@gmail.com",
     "adedoyinfehintola@gmail.com",
 }
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
-ADMIN_USER = "dangalan@gmail.com"
+ADMIN_USER = "dangalan20@gmail.com"
 
 rooms = {}
 cache = {}
@@ -666,4 +666,5 @@ def summarize_discussion():
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
