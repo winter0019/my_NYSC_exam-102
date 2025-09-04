@@ -529,10 +529,11 @@ def submit_quiz():
 @app.route("/discussion", methods=["GET"])
 @login_required
 def discussion_index():
+    # This route now renders the single discussion page template
+    # based on the assumption that the front-end is set up for a single, current topic.
     return render_template("discussion.html", email=session["user_email"])
 
 # NEW: Admin route to create a new discussion question
-# Updated route to create a new discussion room
 @app.route("/create_discussion", methods=["POST"])
 @admin_required
 def create_discussion():
@@ -543,85 +544,24 @@ def create_discussion():
     
     if db:
         try:
-            # Create a new, unique document for the discussion
-            new_discussion_ref = db.collection("discussions").document()
-            new_discussion_ref.set({
+            # Revert to a single, fixed document ID for the active topic
+            discussion_ref = db.collection("discussions").document("current_topic")
+            discussion_ref.set({
                 "question": question,
                 "created_by": session.get("user_email"),
                 "created_at": firestore.SERVER_TIMESTAMP,
                 "status": "active"
             })
-            logger.info(f"New discussion created: '{question}' with ID {new_discussion_ref.id}")
+            # Clear previous messages
+            messages = db.collection("discussions").document("current_topic").collection("messages").list_documents()
+            for message in messages:
+                message.delete()
+            logger.info(f"New discussion created: '{question}'")
             return jsonify({"success": True, "message": "Discussion topic created."})
         except Exception as e:
             logger.error(f"Failed to create discussion: {e}")
             return jsonify({"error": "Failed to create discussion"}), 500
     return jsonify({"error": "Database not configured"}), 500
-
-# Updated route to list all discussion rooms
-@app.route("/discussion", methods=["GET"])
-@login_required
-def discussion_index():
-    if db:
-        try:
-            # Get all documents from the 'discussions' collection
-            rooms_stream = db.collection("discussions").order_by("created_at", direction=firestore.Query.DESCENDING).stream()
-            rooms = []
-            for doc in rooms_stream:
-                room_data = doc.to_dict()
-                room_id = doc.id
-                
-                # Fetch last activity and message count for each room
-                messages_ref = db.collection("discussions").document(room_id).collection("messages")
-                messages_stream = messages_ref.order_by("timestamp", direction=firestore.Query.DESCENDING).limit(1).stream()
-                
-                last_activity = None
-                message_count = 0
-                participants = set()
-
-                all_messages = messages_ref.stream()
-                for msg in all_messages:
-                    message_count += 1
-                    msg_data = msg.to_dict()
-                    participants.add(msg_data.get("user"))
-                    if last_activity is None:
-                        last_activity = msg_data.get("timestamp")
-
-                rooms.append({
-                    "id": room_id,
-                    "question": room_data.get("question"),
-                    "created_by": room_data.get("created_by"),
-                    "last_activity": last_activity,
-                    "messages": list(participants), # This is a placeholder; you'll need to fetch real messages for length
-                    "participant_count": len(participants)
-                })
-            
-            return render_template("discussion.html", rooms=rooms, session=session)
-        except Exception as e:
-            logger.error(f"Failed to fetch discussion rooms: {e}")
-            # Fallback to an empty list on failure
-            return render_template("discussion.html", rooms=[], session=session)
-
-    return render_template("discussion.html", rooms=[], session=session)
-
-# New route to view a specific discussion room
-@app.route("/discussion_room/<room_id>", methods=["GET"])
-@login_required
-def discussion_room(room_id):
-    if db:
-        try:
-            # Check if the room exists
-            room_ref = db.collection("discussions").document(room_id)
-            room_doc = room_ref.get()
-            if not room_doc.exists:
-                return "Discussion room not found", 404
-            
-            room_data = room_doc.to_dict()
-            return render_template("discussion_room.html", room_id=room_id, room=room_data)
-        except Exception as e:
-            logger.error(f"Failed to load discussion room {room_id}: {e}")
-            return "Error loading discussion room", 500
-    return "Database not configured", 500
 
 # NEW: Route to get the current discussion topic
 @app.route("/get_current_discussion", methods=["GET"])
@@ -753,4 +693,3 @@ def online_users():
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
-
