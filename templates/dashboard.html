@@ -1,66 +1,179 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NYSC Exam Prep - Dashboard</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-  <script src="/static/js/firebase.js"></script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYSC Exam Prep - User Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+    <script src="/static/js/firebase.js"></script>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
-  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
-    <div class="flex justify-between items-center mb-6">
-      <h1 class="text-2xl font-bold">User Dashboard</h1>
-      <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
-    </div>
-
-    <p id="status" class="mb-4 text-gray-600">Checking access...</p>
-
-    <!-- Dashboard Content -->
-    <div id="content" class="hidden space-y-6">
-      <p class="mb-4">Welcome to NYSC Exam Prep! 🎓</p>
-
-      <!-- Exam Tools -->
-      <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-        <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
-        <p class="mb-4">Choose how you want to practice:</p>
-        <div class="flex gap-4">
-          <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
-          <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h1 class="text-2xl font-bold">User Dashboard</h1>
+            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
         </div>
-      </section>
 
-      <!-- Discussion Room -->
-      <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-        <h2 class="text-lg font-semibold mb-4">Discussion Room</h2>
-        <p class="text-gray-600">💬 Chat and learn together with other candidates.</p>
-        <a href="/quiz#discussion" class="text-blue-600 underline">Go to Discussion Room</a>
-      </section>
+        <p id="status" class="mb-4 text-gray-600">Checking access...</p>
+
+        <div id="content" class="hidden space-y-6">
+            <p class="mb-4">Welcome to NYSC Exam Prep! 🎓</p>
+
+            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+                <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
+                <p class="mb-4">Choose how you want to practice:</p>
+                <div class="flex gap-4">
+                    <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
+                    <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+                </div>
+            </section>
+
+            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-semibold">Discussion Room</h2>
+                    <button id="summary-btn" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm">Get Final Summary</button>
+                </div>
+
+                <div class="mb-4">
+                    <p class="font-bold text-gray-800">Current Topic:</p>
+                    <p id="discussion-question" class="mt-1 text-gray-700 italic">Loading...</p>
+                </div>
+                
+                <div id="discussion-messages" class="h-64 overflow-y-auto bg-white p-4 rounded-md shadow-sm mb-4">
+                    <p class="text-center text-gray-500">No messages yet. Be the first to start the discussion!</p>
+                </div>
+
+                <div class="space-y-2">
+                    <p class="text-sm font-medium text-gray-700">Join the discussion:</p>
+                    <form id="discussion-form" class="flex gap-2">
+                        <input type="text" id="message-input" placeholder="Type your message..." required class="flex-grow px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Send</button>
+                    </form>
+                </div>
+            </section>
+        </div>
     </div>
-  </div>
 
-  <script>
-    const email = localStorage.getItem("userEmail");
-    const status = document.getElementById("status");
-    const content = document.getElementById("content");
-    const logoutBtn = document.getElementById("logout-btn");
+    <script>
+        const email = localStorage.getItem("userEmail");
+        const status = document.getElementById("status");
+        const content = document.getElementById("content");
+        const logoutBtn = document.getElementById("logout-btn");
 
-    if (!email) {
-      window.location.href = "/login";
-    } else {
-      status.textContent = `✅ Logged in as: ${email}`;
-      content.classList.remove("hidden");
-    }
+        const discussionQuestionEl = document.getElementById("discussion-question");
+        const discussionMessagesEl = document.getElementById("discussion-messages");
+        const discussionForm = document.getElementById("discussion-form");
+        const messageInput = document.getElementById("message-input");
+        const summaryBtn = document.getElementById("summary-btn");
 
-    // --- Logout ---
-    logoutBtn.addEventListener("click", () => {
-      firebase.auth().signOut().then(() => {
-        localStorage.removeItem("userEmail");
-        window.location.href = "/login";
-      });
-    });
-  </script>
+        if (!email) {
+            window.location.href = "/login";
+        } else {
+            status.textContent = `✅ Logged in as: ${email}`;
+            content.classList.remove("hidden");
+        }
+
+        // --- Corrected Logout ---
+        logoutBtn.addEventListener("click", () => {
+            // Step 1: Sign out of Firebase
+            firebase.auth().signOut().then(() => {
+                // Step 2: Clear the Flask server session
+                fetch('/logout', {
+                    method: 'POST'
+                }).then(() => {
+                    localStorage.removeItem("userEmail");
+                    window.location.href = "/login";
+                }).catch(error => {
+                    console.error("Server-side logout failed:", error);
+                    // Even if server-side logout fails, clear local storage and redirect
+                    localStorage.removeItem("userEmail");
+                    window.location.href = "/login";
+                });
+            }).catch(error => {
+                console.error("Firebase sign out failed:", error);
+                alert("Logout failed. Please try again.");
+            });
+        });
+
+        // --- Discussion Logic ---
+        async function fetchCurrentDiscussion() {
+            try {
+                const response = await fetch('/get_current_discussion');
+                const data = await response.json();
+                discussionQuestionEl.textContent = data.question;
+            } catch (error) {
+                console.error("Failed to fetch discussion question:", error);
+                discussionQuestionEl.textContent = "Could not load discussion topic.";
+            }
+        }
+
+        async function fetchMessages() {
+            try {
+                const response = await fetch('/get_discussion_messages');
+                const messages = await response.json();
+                discussionMessagesEl.innerHTML = '';
+                if (messages.length === 0) {
+                    discussionMessagesEl.innerHTML = '<p class="text-center text-gray-500">No messages yet. Be the first to start the discussion!</p>';
+                } else {
+                    messages.forEach(msg => {
+                        const msgEl = document.createElement('div');
+                        msgEl.className = 'mb-2';
+                        msgEl.innerHTML = `<strong>${msg.user}:</strong> ${msg.text}`;
+                        discussionMessagesEl.appendChild(msgEl);
+                    });
+                    discussionMessagesEl.scrollTop = discussionMessagesEl.scrollHeight; // Scroll to bottom
+                }
+            } catch (error) {
+                console.error("Failed to fetch messages:", error);
+                discussionMessagesEl.innerHTML = '<p class="text-center text-red-500">Failed to load messages.</p>';
+            }
+        }
+
+        discussionForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message) return;
+
+            try {
+                await fetch('/post_discussion_message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: message })
+                });
+                messageInput.value = '';
+                fetchMessages(); // Refresh messages after sending
+            } catch (error) {
+                console.error("Failed to post message:", error);
+                alert("Failed to send message. Please try again.");
+            }
+        });
+
+        summaryBtn.addEventListener('click', async () => {
+            summaryBtn.textContent = 'Generating...';
+            summaryBtn.disabled = true;
+            try {
+                const response = await fetch('/summarize_discussion', { method: 'POST' });
+                const data = await response.json();
+                if (data.summary) {
+                    alert('Final Summary:\n\n' + data.summary);
+                } else {
+                    alert('Failed to generate summary: ' + data.error);
+                }
+            } catch (error) {
+                console.error("Failed to get summary:", error);
+                alert("An error occurred while generating the summary.");
+            } finally {
+                summaryBtn.textContent = 'Get Final Summary';
+                summaryBtn.disabled = false;
+            }
+        });
+
+        // Initial fetch and periodic updates
+        fetchCurrentDiscussion();
+        fetchMessages();
+        setInterval(fetchMessages, 5000); // Poll for new messages every 5 seconds
+    </script>
 </body>
 </html>
