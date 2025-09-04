@@ -5,10 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYSC Exam Prep - Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
-    <script src="/static/js/firebase.js"></script>
-</head>
+    
+    </head>
 <body class="bg-gray-50 min-h-screen p-6">
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <div class="flex justify-between items-center mb-6">
@@ -56,8 +54,11 @@
         </div>
     </div>
 
-    <script>
-        const ADMIN_EMAILS = ["admin@nysc.gov.ng", "dangalan20@gmail.com"]; // 🔑 Add all admin emails here
+    <script type="module">
+        // ✅ This is the correct way to import from your firebase.js module
+        import { auth, signOut } from "/static/js/firebase.js";
+        
+        const ADMIN_EMAILS = ["admin@nysc.gov.ng", "dangalan20@gmail.com"];
         const email = localStorage.getItem("userEmail");
 
         const status = document.getElementById("status");
@@ -72,7 +73,7 @@
         if (!email) {
             window.location.href = "/login";
         } else if (!ADMIN_EMAILS.includes(email)) {
-            window.location.href = "/quiz"; // 🚫 not admin
+            window.location.href = "/quiz";
         } else {
             status.textContent = `✅ Logged in as Admin: ${email}`;
             content.classList.remove("hidden");
@@ -80,9 +81,8 @@
 
         // --- Corrected Logout ---
         logoutBtn.addEventListener("click", () => {
-            // Step 1: Sign out of Firebase
-            firebase.auth().signOut().then(() => {
-                // Step 2: Clear the Flask server session
+            // ✅ Now this will correctly call the imported signOut function
+            signOut(auth).then(() => {
                 fetch('/logout', {
                     method: 'POST'
                 }).then(() => {
@@ -101,7 +101,6 @@
 
         // --- Admin Actions ---
         
-        // Handle discussion form submission
         createDiscussionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const question = discussionQuestionInput.value.trim();
@@ -116,7 +115,7 @@
                 const data = await response.json();
                 if (data.success) {
                     alert("Discussion topic posted successfully!");
-                    discussionQuestionInput.value = ''; // Clear the form
+                    discussionQuestionInput.value = '';
                 } else {
                     alert("Failed to post discussion: " + data.error);
                 }
@@ -138,10 +137,8 @@
             }
         }
         
-        // Fetch data on page load and every 30 seconds
         fetchOnlineUsers();
-        setInterval(fetchOnlineUsers, 30000); // Poll every 30 seconds
+        setInterval(fetchOnlineUsers, 30000);
     </script>
 </body>
 </html>
-
