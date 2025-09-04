@@ -1,14 +1,3 @@
-Thank you for sharing the updated code\! You've made some excellent improvements by adding the request logging and the `/online_users` route.
-
-I have integrated all the components from your previous scripts with your latest changes. The final code is now a complete and fully functional `app.py` that includes:
-
-  * **Robust Logging:** A `loguru` setup that writes to a file and the standard output, with a new `@app.after_request` decorator to log every single request.
-  * **Secure Admin Routes:** The `/admin_dashboard` and `/create_discussion` routes are now correctly protected by the `@admin_required` decorator.
-  * **Corrected `/online_users` Route:** I've implemented a more accurate version of the `/online_users` route that tracks active sessions. This gives you a true "online" count, whether or not Firestore is configured.
-
-Here is the complete and updated `app.py` file.
-
-````python
 import os
 import re
 import json
@@ -703,3 +692,4 @@ if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
 
 ````
+
