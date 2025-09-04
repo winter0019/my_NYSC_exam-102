@@ -219,9 +219,11 @@ def quiz_to_uniform_schema(quiz_obj):
     return out
 
 
+# --- UPDATED: call_gemini_for_quiz to be more specific ---
 def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
     """
-    Ask Gemini to return strict JSON for MCQs. Falls back to best-effort parse.
+    Ask Gemini to return strict JSON for MCQs.
+    The prompt is now more specific to prevent general questions.
     """
     system_prompt = f"""
 You are a question generator for NYSC exam prep.
@@ -241,13 +243,12 @@ Rules:
 - 5 questions.
 - 4 options each.
 - Options should be concise.
-- Make questions based ONLY on the provided context (if weak, fall back to subject knowledge for that grade).
+- **Make questions based ONLY on the provided context.**
+- Tailor the difficulty to a {grade} level.
+- Focus on the {subject} section of the context.
 - No prose, no explanation, no markdown, ONLY pure JSON.
 Context (trimmed):
 {context_text[:1500]}
-
-Subject: {subject}
-Grade: {grade}
 """
     model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
@@ -471,6 +472,44 @@ def generate_quiz():
         import traceback
         app.logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": "Quiz generation failed"}), 500
+
+# --- NEW ROUTE: Quiz Scoring ---
+@app.route("/submit_quiz", methods=["POST"])
+@login_required
+def submit_quiz():
+    """
+    Receives user answers, calculates score, and returns results.
+    """
+    data = request.get_json()
+    user_answers = data.get("answers", {})
+    quiz_data = data.get("quiz_data", {})
+    
+    score = 0
+    total_questions = len(quiz_data.get("questions", []))
+    results = []
+
+    for i, question in enumerate(quiz_data.get("questions", [])):
+        question_id = str(i)
+        user_answer = user_answers.get(question_id)
+        correct_answer = question.get("answer")
+        
+        is_correct = (user_answer == correct_answer)
+        if is_correct:
+            score += 1
+        
+        results.append({
+            "question": question.get("question"),
+            "user_answer": user_answer,
+            "correct_answer": correct_answer,
+            "is_correct": is_correct
+        })
+
+    log_quiz_activity(session["user_email"], "submit_quiz", f"Score: {score}/{total_questions}")
+    return jsonify({
+        "score": score,
+        "total": total_questions,
+        "results": results
+    })
 
 # --- Discussion (template-driven pages) ---
 @app.route("/discussion", methods=["GET", "POST"])
