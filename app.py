@@ -347,7 +347,7 @@ def login():
 
             if resp.status_code == 200:
                 session["user_email"] = email
-                role = "admin" if email == "admin@nysc.gov.ng" else "user"
+                role = "admin" if email == "dangalan@gmail.com" else "user"
                 return jsonify({"ok": True, "role": role})
             else:
                 return jsonify({"ok": False, "error": "Invalid credentials"}), 401
@@ -366,7 +366,7 @@ def logout():
 @login_required
 def dashboard():
     user = session["user_email"]
-    if user == "admin@nysc.gov.ng":
+    if user == "dangalan@gmail.com":
         return render_template("admin_dashboard.html", email=user)
     return render_template("dashboard.html", email=user)
 
@@ -505,6 +505,23 @@ def submit_quiz():
         })
 
     log_quiz_activity(session["user_email"], "submit_quiz", f"Score: {score}/{total_questions}")
+    
+    # NEW: Save the quiz result to the user's profile in the database
+    user_email = session.get("user_email")
+    if db and user_email:
+        try:
+            # Create a document in a 'quiz_results' subcollection under the user's email document
+            quiz_results_ref = db.collection("users").document(user_email).collection("quiz_results")
+            quiz_results_ref.add({
+                "score": score,
+                "total": total_questions,
+                "date": datetime.now(),
+                "details": results
+            })
+            logger.info(f"Quiz result for {user_email} saved to database.")
+        except Exception as e:
+            logger.error(f"Failed to save quiz result for {user_email}: {e}")
+
     return jsonify({
         "score": score,
         "total": total_questions,
@@ -617,3 +634,4 @@ def summarize_room(room_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
