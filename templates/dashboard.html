@@ -5,165 +5,301 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NYSC Exam Prep - User Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 500px;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
+
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
+                <button onclick="hideModal()" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
+            </div>
+            <p id="modal-message" class="text-gray-700 mb-4"></p>
+            <div class="flex justify-end">
+                <button onclick="hideModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none">OK</button>
+            </div>
+        </div>
+    </div>
+    
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold">User Dashboard</h1>
-            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
+            <h1 class="text-2xl font-bold text-gray-800">User Dashboard</h1>
+            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">Logout</button>
         </div>
 
         <p id="status" class="mb-4 text-gray-600">Welcome to NYSC Exam Prep! 🎓</p>
+        <p id="user-id-display" class="mb-4 text-xs text-gray-500"></p>
 
         <div id="content" class="space-y-6">
             <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
-                <p class="mb-4">Choose how you want to practice:</p>
-                <div class="flex gap-4">
-                    <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
-                    <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+                <h2 class="text-lg font-semibold mb-4 text-gray-800">Exam Tools</h2>
+                <p class="mb-4 text-gray-700">Choose how you want to practice:</p>
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <button onclick="showModal('Not Available', 'This feature is not available in the current single-file version. Please use the discussion room below.')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Upload & Generate Quiz</button>
+                    <button onclick="showModal('Not Available', 'This feature is not available in the current single-file version. Please use the discussion room below.')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">Free Trial Quiz</button>
                 </div>
             </section>
 
             <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-semibold">Discussion Room</h2>
-                    <button id="summary-btn" class="bg-purple-600 text-white px-3 py-1 rounded hover:bg-purple-700 text-sm">Get Final Summary</button>
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
+                    <h2 class="text-lg font-semibold text-gray-800">Discussion Room</h2>
+                    <button id="summary-btn" class="bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm">Get Final Summary</button>
                 </div>
-
+                
                 <div class="mb-4">
                     <p class="font-bold text-gray-800">Current Topic:</p>
                     <p id="discussion-question" class="mt-1 text-gray-700 italic">Loading...</p>
                 </div>
                 
-                <div id="discussion-messages" class="h-64 overflow-y-auto bg-white p-4 rounded-md shadow-sm mb-4">
-                    <p class="text-center text-gray-500">No messages yet. Be the first to start the discussion!</p>
+                <div id="discussion-messages" class="h-64 overflow-y-auto bg-white p-4 rounded-lg shadow-sm mb-4 space-y-2">
+                    <!-- Messages will be rendered here -->
+                    <p class="text-center text-gray-500">Connecting to discussion room...</p>
                 </div>
 
                 <div class="space-y-2">
                     <p class="text-sm font-medium text-gray-700">Join the discussion:</p>
                     <form id="discussion-form" class="flex gap-2">
-                        <input type="text" id="message-input" placeholder="Type your message..." required class="flex-grow px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Send</button>
+                        <input type="text" id="message-input" placeholder="Type your message..." required class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Send</button>
                     </form>
                 </div>
             </section>
         </div>
     </div>
-
+    
     <script type="module">
-        import { auth, signOut } from "/static/js/firebase.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, addDoc, onSnapshot, collection, query, orderBy, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variable checks
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // Initialize Firebase
+        setLogLevel('debug');
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
 
         // --- DOM Elements ---
-        const status = document.getElementById("status");
-        const content = document.getElementById("content");
+        const statusEl = document.getElementById("status");
+        const contentEl = document.getElementById("content");
         const logoutBtn = document.getElementById("logout-btn");
         const discussionQuestionEl = document.getElementById("discussion-question");
         const discussionMessagesEl = document.getElementById("discussion-messages");
         const discussionForm = document.getElementById("discussion-form");
         const messageInput = document.getElementById("message-input");
         const summaryBtn = document.getElementById("summary-btn");
+        const userIdDisplay = document.getElementById("user-id-display");
 
-        // --- Corrected Logout ---
-        logoutBtn.addEventListener("click", () => {
-            signOut(auth).then(() => {
-                fetch('/logout', {
-                    method: 'POST'
-                }).then(() => {
-                    localStorage.removeItem("userEmail");
-                    window.location.href = "/login";
-                }).catch(error => {
-                    console.error("Server-side logout failed:", error);
-                    localStorage.removeItem("userEmail");
-                    window.location.href = "/login";
-                });
-            }).catch(error => {
+        // --- Custom Modal Functions ---
+        const modal = document.getElementById("custom-modal");
+        const modalTitle = document.getElementById("modal-title");
+        const modalMessage = document.getElementById("modal-message");
+        
+        function showModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modal.style.display = 'flex';
+        }
+        
+        function hideModal() {
+            modal.style.display = 'none';
+        }
+
+        // --- Authentication Logic ---
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                // User is signed in.
+                const userId = user.uid;
+                userIdDisplay.textContent = `User ID: ${userId}`;
+                statusEl.textContent = "Welcome to NYSC Exam Prep! 🎓 You are now logged in.";
+                contentEl.style.display = 'block';
+
+                await fetchDiscussionTopic();
+                setupDiscussionListener();
+            } else {
+                // User is signed out.
+                statusEl.textContent = "Please wait, signing you in...";
+                contentEl.style.display = 'none';
+
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Firebase Auth failed:", error);
+                    showModal('Authentication Error', 'Failed to sign in. Please try again later.');
+                }
+            }
+        });
+
+        logoutBtn.addEventListener("click", async () => {
+            try {
+                await signOut(auth);
+                showModal('Logged Out', 'You have been successfully logged out.');
+            } catch (error) {
                 console.error("Firebase sign out failed:", error);
-                alert("Logout failed. Please try again.");
-            });
+                showModal('Logout Failed', 'An error occurred during logout. Please try again.');
+            }
         });
 
         // --- Discussion Logic ---
-        async function fetchCurrentDiscussion() {
+        const PUBLIC_COLLECTION = `artifacts/${appId}/public/data/discussion_messages`;
+        const DISCUSSION_TOPIC_DOC = `artifacts/${appId}/public/data/discussion_topics/current`;
+        let messages = [];
+
+        async function fetchDiscussionTopic() {
             try {
-                const response = await fetch('/get_current_discussion');
-                const data = await response.json();
-                discussionQuestionEl.textContent = data.question;
+                const topicDocRef = doc(db, DISCUSSION_TOPIC_DOC);
+                const topicDoc = await getDoc(topicDocRef);
+                if (topicDoc.exists()) {
+                    discussionQuestionEl.textContent = topicDoc.data().question;
+                } else {
+                    discussionQuestionEl.textContent = "Could not load discussion topic.";
+                    // Optional: Create a default topic if one doesn't exist
+                    await setDoc(topicDocRef, { question: "What are the most effective study techniques for the NYSC exam?" });
+                }
             } catch (error) {
-                console.error("Failed to fetch discussion question:", error);
-                discussionQuestionEl.textContent = "Could not load discussion topic.";
+                console.error("Failed to fetch discussion topic:", error);
+                discussionQuestionEl.textContent = "Error loading topic.";
             }
         }
 
-        async function fetchMessages() {
-            try {
-                const response = await fetch('/get_discussion_messages');
-                const messages = await response.json();
+        function setupDiscussionListener() {
+            const messagesCollectionRef = collection(db, PUBLIC_COLLECTION);
+            const q = query(messagesCollectionRef, orderBy('timestamp'));
+
+            onSnapshot(q, (snapshot) => {
                 discussionMessagesEl.innerHTML = '';
-                if (messages.length === 0) {
+                messages = [];
+                if (snapshot.empty) {
                     discussionMessagesEl.innerHTML = '<p class="text-center text-gray-500">No messages yet. Be the first to start the discussion!</p>';
                 } else {
-                    messages.forEach(msg => {
+                    snapshot.forEach(doc => {
+                        const msg = doc.data();
+                        messages.push(msg); // Store messages for summarization
                         const msgEl = document.createElement('div');
-                        msgEl.className = 'mb-2';
-                        msgEl.innerHTML = `<strong>${msg.user}:</strong> ${msg.text}`;
+                        msgEl.className = 'mb-2 p-2 rounded-lg bg-gray-50';
+                        const userLabel = msg.userId === auth.currentUser.uid ? "You" : `User (${msg.userId.substring(0, 4)}...)`;
+                        msgEl.innerHTML = `<p class="font-bold text-gray-800">${userLabel}: <span class="text-gray-700 font-normal">${msg.text}</span></p>`;
                         discussionMessagesEl.appendChild(msgEl);
                     });
                     discussionMessagesEl.scrollTop = discussionMessagesEl.scrollHeight;
                 }
-            } catch (error) {
-                console.error("Failed to fetch messages:", error);
-                discussionMessagesEl.innerHTML = '<p class="text-center text-red-500">Failed to load messages.</p>';
-            }
+            });
         }
 
         discussionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const message = messageInput.value.trim();
-            if (!message) return;
+            if (!message || !auth.currentUser) {
+                showModal('Error', 'Please log in and type a message to send.');
+                return;
+            }
+
+            const messagesCollectionRef = collection(db, PUBLIC_COLLECTION);
+            const userId = auth.currentUser.uid;
 
             try {
-                const response = await fetch('/post_discussion_message', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: message })
+                await addDoc(messagesCollectionRef, {
+                    userId: userId,
+                    text: message,
+                    timestamp: new Date().toISOString()
                 });
-                const data = await response.json();
-                if (data.success) {
-                    messageInput.value = '';
-                    fetchMessages();
-                } else {
-                    alert("Failed to send message: " + (data.error || "Unknown error"));
-                }
+                messageInput.value = '';
             } catch (error) {
                 console.error("Failed to post message:", error);
-                alert("Failed to send message. Please try again.");
+                showModal('Error', 'Failed to send message. Please try again.');
             }
         });
 
         summaryBtn.addEventListener('click', async () => {
+            if (messages.length === 0) {
+                showModal('No Messages', 'There are no messages to summarize yet.');
+                return;
+            }
+
             summaryBtn.textContent = 'Generating...';
             summaryBtn.disabled = true;
+
+            const systemPrompt = "You are a world-class academic tutor. Provide a concise, single-paragraph summary of the key findings from the student discussion. Your summary should be helpful and insightful for someone preparing for an exam.";
+            const userQuery = `Summarize the following discussion messages:\n\n${messages.map(m => m.text).join('\n')}`;
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                tools: [{ "google_search": {} }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+            };
+            
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
             try {
-                const response = await fetch('/summarize_discussion', { method: 'POST' });
-                const data = await response.json();
-                if (data.summary) {
-                    alert('Final Summary:\n\n' + data.summary);
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                const summaryText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
+
+                if (summaryText) {
+                    showModal('Final Discussion Summary', summaryText);
                 } else {
-                    alert('Failed to generate summary: ' + data.error);
+                    showModal('Summary Error', 'Failed to generate a summary. Please try again.');
                 }
             } catch (error) {
-                console.error("Failed to get summary:", error);
-                alert("An error occurred while generating the summary.");
+                console.error("Failed to get summary from API:", error);
+                showModal('Summary Error', 'An error occurred while generating the summary. Please check your network connection.');
             } finally {
                 summaryBtn.textContent = 'Get Final Summary';
                 summaryBtn.disabled = false;
             }
         });
-
-        fetchCurrentDiscussion();
-        fetchMessages();
-        setInterval(fetchMessages, 5000); // Poll for new messages every 5 seconds
     </script>
 </body>
 </html>
