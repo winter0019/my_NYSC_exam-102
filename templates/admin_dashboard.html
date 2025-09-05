@@ -57,7 +57,7 @@
     <!-- Live Stats -->
     <section class="bg-gray-100 p-6 rounded-lg shadow-inner mb-6">
       <h2 class="text-lg font-semibold mb-4">Live Statistics</h2>
-      <p class="text-sm text-gray-600 mb-4">Online user data updates every 10 seconds. User IDs are displayed to help with moderation.</p>
+      <p class="text-sm text-gray-600 mb-4">Online user data updates every 10 seconds.</p>
       <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold text-lg">...</span></p>
       <ul id="online-users-list" class="mt-2 space-y-1"></ul>
     </section>
@@ -81,7 +81,7 @@
     <!-- Active Topics -->
     <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
       <h2 class="text-lg font-semibold mb-4">Active Discussion Topics</h2>
-      <p class="text-sm text-gray-600 mb-4">Click "Join" to enter a discussion room and moderate the chat.</p>
+      <p class="text-sm text-gray-600 mb-4">Click "Join" to moderate chats. You can also delete topics.</p>
       <ul id="discussion-topics-list" class="space-y-4"></ul>
     </section>
   </div>
@@ -89,7 +89,7 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
     import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, onSnapshot, collection, query, Timestamp, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { getFirestore, doc, setDoc, onSnapshot, collection, query, Timestamp, addDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
     // Global vars from backend
     const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -124,6 +124,7 @@
       modalContent.classList.remove("scale-100", "opacity-100");
     }
 
+    // Chat modal setup
     const chatModal = document.getElementById("chat-modal");
     const chatModalContent = document.getElementById("chat-modal-content");
     const chatTopicQuestion = document.getElementById("chat-topic-question");
@@ -135,6 +136,7 @@
     let unsubscribeMessages = null;
     let unsubscribePresence = null;
     let presenceIntervalId = null;
+
     function showChatModal(topicId, question) {
       currentRoomId = topicId;
       chatTopicQuestion.textContent = question;
@@ -152,7 +154,7 @@
       if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
     }
 
-    // Firebase
+    // Firebase setup
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
     const auth = getAuth(app);
@@ -229,7 +231,7 @@
         snap.forEach(d => {
           const data = d.data();
           if (data.last_active?.seconds > cutoff) {
-            const id = data.userId===auth.currentUser.uid ? "You (Admin)" : `User: ${data.userId}`;
+            const id = data.type==="admin" ? "Admin" : `User: ${data.userId}`;
             online.push(id);
             if (data.current_room) counts[data.current_room] = (counts[data.current_room]||0)+1;
           }
@@ -259,18 +261,28 @@
         discussionTopicsListEl.innerHTML="";
         snap.forEach(d => {
           const data=d.data(), id=d.id;
+          const time = data.posted_at?.toDate ? data.posted_at.toDate().toLocaleString() : "N/A";
           const li=document.createElement("li");
           li.dataset.id=id;
           li.className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col gap-2 topic-item";
           li.innerHTML=`
             <p class="font-semibold text-gray-800">${data.question}</p>
+            <p class="text-xs text-gray-500">Posted at: ${time}</p>
             <div class="flex items-center justify-between text-sm text-gray-500">
               <span class="user-count">0 Users</span>
-              <button class="join-btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Join</button>
+              <div class="flex gap-2">
+                <button class="join-btn bg-blue-600 text-white px-3 py-1 rounded-lg hover:bg-blue-700">Join</button>
+                <button class="delete-btn bg-red-500 text-white px-3 py-1 rounded-lg hover:bg-red-600">Delete</button>
+              </div>
             </div>`;
           li.querySelector(".join-btn").addEventListener("click", () => {
             updatePresence(auth.currentUser,id);
             showChatModal(id,data.question);
+          });
+          li.querySelector(".delete-btn").addEventListener("click", async () => {
+            if (confirm("Delete this topic?")) {
+              await deleteDoc(doc(db, `artifacts/${appId}/public/data/discussion_topics/${id}`));
+            }
           });
           discussionTopicsListEl.appendChild(li);
         });
