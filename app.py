@@ -161,62 +161,118 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- New Robust Gemini quiz parsing ---
-def call_gemini_for_quiz(text, subject, grade):
-    """
-    Ask Gemini to generate realistic Nigerian Civil Service/NYSC promotional exam-style MCQs.
-    """
-    prompt = f"""
-    You are tasked with generating multiple-choice questions for the Nigerian Civil Service / NYSC promotional exam.
+# --- Robust Gemini quiz parsing ---
+def _extract_first_json_block(text: str):
+    if not text:
+        return None
+    # First, look for code-fenced JSON
+    m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
+    if m:
+        return m.group(1)
+    # Then, try to find a standalone JSON object
+    m = re.search(r"(\{(?:.|\n)*\})", text)
+    if m:
+        return m.group(1)
+    return None
 
-    Source material:
-    {text[:4000]}  # limit to first 4000 chars for context
+def quiz_to_uniform_schema(quiz_obj):
+    out = {"questions": []}
+    items = quiz_obj.get("questions") or quiz_obj.get("quiz") or []
 
-    Guidelines:
-    - Create 5–10 multiple-choice questions.
-    - Each question must have exactly 4 options (A, B, C, D).
-    - Return output in strict JSON format ONLY, no extra commentary.
-    - Each item must include: "question", "options", "answer".
-    - "answer" must exactly match one of the options.
-    - Do not include references to chapters, sections, or document structure.
-    - Focus on practical, regulatory, and disciplinary exam-style questions.
+    for q in items:
+        question = str(q.get("question") or q.get("q") or "").strip()
+        options = q.get("options") or q.get("choices") or []
+        answer = str(q.get("answer") or q.get("correct") or q.get("correct_answer") or "").strip()
 
-    Example JSON output:
+        if isinstance(options, dict):
+            keys = ["A", "B", "C", "D"]
+            options = [options.get(k, "").strip() for k in keys if options.get(k)]
+
+        if isinstance(options, list):
+            options = [str(o).strip() for o in options if o]
+        else:
+            options = []
+
+        while len(options) < 4:
+            options.append("N/A")
+        options = options[:4]
+
+        if answer not in options:
+            answer = ""
+
+        if question:
+            out["questions"].append({
+                "question": question,
+                "options": options,
+                "answer": answer
+            })
+    return out
+
+def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
+    system_prompt = f"""
+You are a question generator for NYSC exam prep.
+Return STRICT JSON ONLY with this shape:
+
+{{
+  "questions": [
     {{
-      "questions": [
-        {{
-          "question": "According to the Public Service Rules, how many working days of casual leave may be granted in a calendar year?",
-          "options": ["7", "10", "14", "21"],
-          "answer": "10"
-        }},
-        {{
-          "question": "Which of the following is a disciplinary offence for corps members under the NYSC Bye-laws?",
-          "options": [
-            "Being absent from PPA without permission",
-            "Wearing full NYSC uniform",
-            "Signing the attendance register",
-            "Attending CDS meetings"
-          ],
-          "answer": "Being absent from PPA without permission"
-        }}
-      ]
+      "question": "string",
+      "options": ["A", "B", "C", "D"],
+      "answer": "the correct option text EXACTLY as shown in options"
     }}
-    """
+  ]
+}}
+
+Rules:
+- 5 questions.
+- 4 options each.
+- Options should be concise.
+- **Make questions based ONLY on the provided context. Focus on the core subject matter, not on chapters, sections, or document formatting.**
+- Tailor the difficulty to a {grade} level.
+- Focus on the {subject} section of the context.
+- No prose, no explanation, no markdown, ONLY pure JSON.
+Context (trimmed):
+{context_text[:1500]}
+"""
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(
+        system_prompt,
+        safety_settings={
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+    )
+
+    raw = (response.text or "").strip()
+
     try:
-        response = genai.GenerativeModel("gemini-pro").generate_content(prompt)
-        raw_output = response.text.strip()
-        
-        # Try parsing as JSON
-        quiz = json.loads(raw_output)
+        return quiz_to_uniform_schema(json.loads(raw))
+    except Exception:
+        pass
 
-        # Basic validation
-        if not quiz.get("questions"):
-            raise ValueError("No questions found in Gemini output")
+    jb = _extract_first_json_block(raw)
+    if jb:
+        try:
+            return quiz_to_uniform_schema(json.loads(jb))
+        except Exception:
+            pass
 
-        return quiz
-    except Exception as e:
-        logger.error(f"Gemini parsing failed: {e}\nOutput was:\n{raw_output}", exc_info=True)
-        return {"questions": []}
+    questions = []
+    blocks = re.split(r"\n\s*\n", raw)
+    for b in blocks:
+        lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
+        if len(lines) >= 5:
+            q = lines[0]
+            opts = []
+            for ln in lines[1:5]:
+                m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
+                opts.append(m.group(1) if m else ln)
+            while len(opts) < 4:
+                opts.append("N/A")
+            questions.append({"question": q, "options": opts[:4], "answer": ""})
+    return {"questions": questions[:5]}
 
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
     try:
@@ -347,7 +403,7 @@ def generate_free_quiz():
         return jsonify(quiz)
 
     except Exception as e:
-        logger.error(f"Free quiz error: {e}", exc_info=True)
+        logger.error(f"Free quiz error: {e}")
         return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Document Upload Quiz API ---
@@ -397,7 +453,7 @@ def generate_quiz():
             return jsonify(quiz)
 
         except Exception as e:
-            logger.error("Quiz generation failed: %s", str(e), exc_info=True)
+            logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
             return jsonify({"error": "Quiz generation failed due to a server error."}), 500
         finally:
             if tmp_path and os.path.exists(tmp_path):
@@ -407,7 +463,7 @@ def generate_quiz():
                     logger.warning(f"Could not delete temp file: {cleanup_err}")
 
     except Exception as e:
-        logger.error("Quiz generation failed: %s", str(e), exc_info=True)
+        logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Discussion API ---
@@ -440,7 +496,7 @@ def handle_discussions():
             logger.info(f"New discussion created: '{question}' with ID {new_topic_ref.id}")
             return jsonify({"success": True, "message": "Discussion topic created."})
         except Exception as e:
-            logger.error(f"Failed to create discussion: {e}", exc_info=True)
+            logger.error(f"Failed to create discussion: {e}")
             return jsonify({"error": "Failed to create discussion"}), 500
 
     else: # GET request
@@ -450,7 +506,7 @@ def handle_discussions():
             topics = [{"id": doc.id, **doc.to_dict()} for doc in topics_stream]
             return jsonify(topics)
         except Exception as e:
-            logger.error(f"Failed to fetch discussions: {e}", exc_info=True)
+            logger.error(f"Failed to fetch discussions: {e}")
             return jsonify({"error": "Failed to fetch discussions"}), 500
 
 # API to post messages to a specific discussion
@@ -477,7 +533,7 @@ def post_discussion_message(topic_id):
         })
         return jsonify({"success": True})
     except Exception as e:
-        logger.error(f"Failed to post message: {e}", exc_info=True)
+        logger.error(f"Failed to post message: {e}")
         return jsonify({"error": "Failed to post message"}), 500
 
 # API to get all messages for a specific discussion
@@ -493,7 +549,7 @@ def get_discussion_messages(topic_id):
         message_list = [{"id": msg.id, **msg.to_dict()} for msg in messages]
         return jsonify(message_list)
     except Exception as e:
-        logger.error(f"Failed to get messages: {e}", exc_info=True)
+        logger.error(f"Failed to get messages: {e}")
         return jsonify({"error": "Failed to get messages"}), 500
 
 # --- Online Users API ---
@@ -510,7 +566,7 @@ def online_users():
         online_users = [{"id": doc.id, **doc.to_dict()} for doc in online_users_stream]
         return jsonify(online_users)
     except Exception as e:
-        logger.error(f"Failed to fetch online users: {e}", exc_info=True)
+        logger.error(f"Failed to fetch online users: {e}")
         return jsonify({"error": "Failed to fetch online users"}), 500
 
 # --- Run ---
