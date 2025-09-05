@@ -213,57 +213,58 @@ def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
     Ask Gemini to generate realistic Nigerian Civil Service/NYSC promotional exam-style MCQs.
     """
     prompt = f"""
-    You are an expert in Nigerian Public Service Rules and NYSC regulations, tasked with generating a high-quality promotional exam. Your questions must be based ONLY on the provided context.
+You are an expert in Nigerian Public Service Rules and NYSC regulations, tasked with generating a high-quality promotional exam. Your questions must be based ONLY on the provided context.
 
-    Source material:
-    {context_text[:4000]}  # limit to first 4000 chars for context
+Source material:
+{context_text[:4000]}
 
-    Guidelines for Exam Questions:
-    - Create 5-10 multiple-choice questions.
-    - Each question must have exactly 4 options (A, B, C, D).
-    - Questions should test a candidate's practical knowledge of duties, rights, and administrative procedures.
-    - Questions should be derived from the three main categories in the source document: NYSC Operations, Public Service Rules, and Current Affairs.
-    - DO NOT ask questions about the document's structure, such as question numbers, section names, or list counts.
-    - Each item must include: "question", "options", "answer".
-    - The "answer" must exactly match one of the options.
-    - Return output in strict JSON format ONLY, with no extra commentary.
+Guidelines for Exam Questions:
+- Create 5-10 multiple-choice questions.
+- Each question must have exactly 4 options (A, B, C, D).
+- Questions should test a candidate's practical knowledge of duties, rights, and administrative procedures.
+- Questions should be derived from the three main categories in the source document: NYSC Operations, Public Service Rules, and Current Affairs.
+- DO NOT ask questions about the document's structure, such as question numbers, section names, or list counts.
+- Each item must include: "question", "options", "answer".
+- The "answer" must exactly match one of the options.
+- Return output in strict JSON format ONLY, with no extra commentary.
 
-    Example JSON output for a professional exam:
+Example JSON output for a professional exam:
+{{
+  "questions": [
     {{
-      "questions": [
-        {{
-          "question": "An officer on SGL 08 has a disciplinary issue. According to the Public Service Rules, what committee is responsible for handling the promotion, appointment, and discipline of this officer?",
-          "options": [
-            "Junior Staff Committee (JSC) Local",
-            "Junior Staff Committee (JSC) Headquarters",
-            "Senior Staff Committee (SSC)",
-            "A special committee with a chairman on SGL 15 and above"
-          ],
-          "answer": "Senior Staff Committee (SSC)"
-        }},
-        {{
-          "question": "A serving corps member is reported by an employer for an infraction. As a Local Government Inspector, what is the first step you would take to address the issue?",
-          "options": [
-            "Immediately withdraw the corps member from the PPA.",
-            "Issue a query to the corps member to get a documented response.",
-            "Visit the corps member's place of primary assignment and interview all parties.",
-            "Invite the corps member to the office to hear their side of the story."
-          ],
-          "answer": "Invite the corps member to the office to hear their side of the story."
-        }},
-        {{
-          "question": "According to the provided document, the amended Electoral Bill allows political parties to conduct a primary election to replace a candidate under what circumstance?",
-          "options": [
-            "If the candidate withdraws from the race.",
-            "If the candidate fails a security clearance.",
-            "If the candidate dies during an election.",
-            "If the candidate is indicted for a criminal offence."
-          ],
-          "answer": "If the candidate dies during an election."
-        }}
-      ]
+      "question": "An officer on SGL 08 has a disciplinary issue. According to the Public Service Rules, what committee is responsible for handling the promotion, appointment, and discipline of this officer?",
+      "options": [
+        "Junior Staff Committee (JSC) Local",
+        "Junior Staff Committee (JSC) Headquarters",
+        "Senior Staff Committee (SSC)",
+        "A special committee with a chairman on SGL 15 and above"
+      ],
+      "answer": "Senior Staff Committee (SSC)"
+    }},
+    {{
+      "question": "A serving corps member is reported by an employer for an infraction. As a Local Government Inspector, what is the first step you would take to address the issue?",
+      "options": [
+        "Immediately withdraw the corps member from the PPA.",
+        "Issue a query to the corps member to get a documented response.",
+        "Visit the corps member's place of primary assignment and interview all parties.",
+        "Invite the corps member to the office to hear their side of the story."
+      ],
+      "answer": "Invite the corps member to the office to hear their side of the story."
+    }},
+    {{
+      "question": "According to the provided document, the amended Electoral Bill allows political parties to conduct a primary election to replace a candidate under what circumstance?",
+      "options": [
+        "If the candidate withdraws from the race.",
+        "If the candidate fails a security clearance.",
+        "If the candidate dies during an election.",
+        "If the candidate is indicted for a criminal offence."
+      ],
+      "answer": "If the candidate dies during an election."
     }}
-    """
+  ]
+}}
+"""
+
     model = genai.GenerativeModel("gemini-1.5-flash")
     response = model.generate_content(
         prompt,
@@ -627,4 +628,5 @@ A video about a Flask tutorial might help you understand the framework better fo
 [Learn Flask for Python](https://www.youtube.com/watch?v=Z1RJmh_OqeA)
 This video is a tutorial on how to set up a basic Flask application, which could help with a better understanding of the code's structure.
 http://googleusercontent.com/youtube_content/0
+
 
