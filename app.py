@@ -30,6 +30,7 @@ from gnews import GNews
 
 import firebase_admin
 from firebase_admin import credentials, firestore, auth
+from google.cloud.firestore_v1.base_query import FieldFilter
 
 # --- Load Environment ---
 load_dotenv()
@@ -83,6 +84,7 @@ ALLOWED_USERS = {
 }
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
 ADMIN_USER = "dangalan20@gmail.com"
+APP_ID = "nysc-exam-prep-app" # Placeholder App ID
 
 # In-memory storage for active sessions (for online user count)
 active_sessions = {}
@@ -156,7 +158,8 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if session.get('user_email') != ADMIN_USER:
             return redirect(url_for('login'))
-        return decorated_function
+        return f(*args, **kwargs)
+    return decorated_function
 
 # --- Robust Gemini quiz parsing ---
 def _extract_first_json_block(text: str):
@@ -354,15 +357,10 @@ def dashboard():
 @app.route("/admin_dashboard")
 @admin_required
 def admin_dashboard():
-    return render_template("admin_dashboard.html", email=session["user_email"])
+    return render_template("admin_dashboard.html")
 
-# --- Free Trial Quiz ---
-@app.route("/free_trial_quiz")
-@login_required
-def free_trial_quiz():
-    return render_template("free_trial_quiz.html", email=session["user_email"])
-
-@app.route("/generate_free_quiz", methods=["POST"])
+# --- Free Trial Quiz API ---
+@app.route("/api/quiz/free", methods=["POST"])
 @login_required
 def generate_free_quiz():
     try:
@@ -396,40 +394,31 @@ def generate_free_quiz():
 
         quiz = call_gemini_for_quiz(context_text, subject, grade)
         cache_set(cache_key, quiz, ttl_minutes=10)
-        log_quiz_activity(session["user_email"], "free_trial", f"GL={grade}, Sub={subject}")
         return jsonify(quiz)
 
     except Exception as e:
         logger.error(f"Free quiz error: {e}")
         return jsonify({"error": "Quiz generation failed"}), 500
 
-@app.route("/quiz")
-@login_required
-def quiz():
-    return render_template("quiz.html", email=session["user_email"])
-
-# --- Document Upload Quiz ---
-@app.route("/generate_quiz", methods=["POST"])
+# --- Document Upload Quiz API ---
+@app.route("/api/quiz/upload", methods=["POST"])
 @login_required
 def generate_quiz():
     try:
         if "document" not in request.files:
-            logger.error("No file uploaded in the 'document' field.")
-            return jsonify({"error": "No file uploaded (field: 'document')"}), 400
+            return jsonify({"error": "No file uploaded"}), 400
 
         file = request.files["document"]
         if file.filename == "":
-            logger.error("Uploaded file has an empty filename.")
             return jsonify({"error": "No selected file"}), 400
 
         if not allowed_file(file.filename):
-            logger.error(f"Invalid file type uploaded: {file.filename}")
             return jsonify({"error": "Invalid file type"}), 400
 
         grade = request.form.get("grade", "GL10")
         subject = request.form.get("subject", "General Knowledge")
         filename = secure_filename(file.filename)
-
+        
         suffix = os.path.splitext(filename)[1] or ".pdf"
         tmp_path = None
         
@@ -437,41 +426,33 @@ def generate_quiz():
             with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
                 file.save(tmp.name)
                 tmp_path = tmp.name
-
-            logger.info(f"File saved temporarily to {tmp_path}")
             
             raw_text = extract_text_from_file(tmp_path)
             context_text = preprocess_text_for_quiz(raw_text)
             
             if not context_text:
-                logger.error("Could not extract text from file or text was too sparse.")
-                return jsonify({"error": "Could not extract text from uploaded file or text was too sparse"}), 400
+                return jsonify({"error": "Could not extract text from uploaded file"}), 400
             
             cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 60, "genquiz")
             cached = cache_get(cache_key)
             if cached:
-                log_quiz_activity(session["user_email"], "cache_hit", filename)
                 return jsonify(cached)
 
-            logger.info(f"Calling Gemini for quiz generation from file: {filename}")
             quiz = call_gemini_for_quiz(context_text, subject, grade)
             
             if not quiz or not quiz.get("questions"):
-                logger.error("Gemini model returned an empty or invalid quiz.")
                 return jsonify({"error": "No questions generated from the document"}), 500
 
             cache_set(cache_key, quiz, ttl_minutes=60)
-            log_quiz_activity(session["user_email"], "generate_quiz", filename)
             return jsonify(quiz)
 
         except Exception as e:
             logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
-            return jsonify({"error": "Quiz generation failed due to a server error. Please check the log."}), 500
+            return jsonify({"error": "Quiz generation failed due to a server error."}), 500
         finally:
             if tmp_path and os.path.exists(tmp_path):
                 try:
                     os.unlink(tmp_path)
-                    logger.info(f"Temporary file {tmp_path} deleted successfully.")
                 except Exception as cleanup_err:
                     logger.warning(f"Could not delete temp file: {cleanup_err}")
 
@@ -479,219 +460,108 @@ def generate_quiz():
         logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": "Quiz generation failed"}), 500
 
-# --- Quiz Scoring ---
-@app.route("/submit_quiz", methods=["POST"])
+# --- Discussion API ---
+@app.route("/api/discussions", methods=["GET", "POST"])
 @login_required
-def submit_quiz():
-    data = request.get_json()
-    if not data:
-        return jsonify({"error": "Invalid request body"}), 400
-
-    user_answers = data.get("answers", {})
-    quiz_data = data.get("quiz_data", {})
-    
-    score = 0
-    total_questions = len(quiz_data.get("questions", []))
-    results = []
-
-    for i, question in enumerate(quiz_data.get("questions", [])):
-        question_id = str(i)
-        user_answer = user_answers.get(question_id)
-        correct_answer = question.get("answer")
+def handle_discussions():
+    if not db:
+        return jsonify({"error": "Database not configured"}), 500
         
-        is_correct = (user_answer == correct_answer)
-        if is_correct:
-            score += 1
-        
-        results.append({
-            "question": question.get("question"),
-            "user_answer": user_answer,
-            "correct_answer": correct_answer,
-            "is_correct": is_correct
-        })
+    if request.method == "POST":
+        data = request.get_json()
+        question = data.get("question")
+        if not question:
+            return jsonify({"error": "Discussion question is required"}), 400
 
-    log_quiz_activity(session["user_email"], "submit_quiz", f"Score: {score}/{total_questions}")
-    
-    user_email = session.get("user_email")
-    if db and user_email:
         try:
-            quiz_results_ref = db.collection("users").document(user_email).collection("quiz_results")
-            quiz_results_ref.add({
-                "score": score,
-                "total": total_questions,
-                "date": datetime.now(),
-                "details": results
-            })
-            logger.info(f"Quiz result for {user_email} saved to database.")
-        except Exception as e:
-            logger.error(f"Failed to save quiz result for {user_email}: {e}")
-
-    return jsonify({
-        "score": score,
-        "total": total_questions,
-        "results": results
-    })
-
-# --- Discussion (Template-driven pages) ---
-@app.route("/discussion", methods=["GET"])
-@login_required
-def discussion_index():
-    if db:
-        try:
-            rooms_stream = db.collection("discussions").order_by("created_at", direction=firestore.Query.DESCENDING).stream()
-            rooms = []
-            for doc in rooms_stream:
-                room_data = doc.to_dict()
-                room_data["id"] = doc.id
-                rooms.append(room_data)
-            return render_template("discussion.html", rooms=rooms, session=session)
-        except Exception as e:
-            logger.error(f"Failed to fetch discussion rooms: {e}")
-    return render_template("discussion.html", rooms=[], session=session)
-
-
-# NEW: Admin route to create a new discussion question
-@app.route("/create_discussion", methods=["POST"])
-@admin_required
-def create_discussion():
-    data = request.get_json()
-    question = data.get("question")
-    if not question:
-        return jsonify({"error": "Discussion question is required"}), 400
-    
-    if db:
-        try:
-            # Check the current number of rooms
-            room_count = len(list(db.collection("discussions").stream()))
-            if room_count >= 3:
-                return jsonify({"error": "Maximum of 3 discussion rooms allowed."}), 400
+            topics_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics")
             
-            # Create a new, unique document for the discussion
-            new_discussion_ref = db.collection("discussions").document()
-            new_discussion_ref.set({
+            # Check for existing active topics to enforce the limit
+            topics_stream = topics_ref.stream()
+            if len(list(topics_stream)) >= 3:
+                return jsonify({"error": "Maximum of 3 discussion rooms allowed."}), 400
+
+            new_topic_ref = topics_ref.document()
+            new_topic_ref.set({
                 "question": question,
-                "created_by": session.get("user_email"),
-                "created_at": firestore.SERVER_TIMESTAMP,
+                "posted_at": firestore.SERVER_TIMESTAMP,
                 "status": "active"
             })
-            logger.info(f"New discussion created: '{question}' with ID {new_discussion_ref.id}")
+            logger.info(f"New discussion created: '{question}' with ID {new_topic_ref.id}")
             return jsonify({"success": True, "message": "Discussion topic created."})
         except Exception as e:
             logger.error(f"Failed to create discussion: {e}")
             return jsonify({"error": "Failed to create discussion"}), 500
-    return jsonify({"error": "Database not configured"}), 500
 
-# NEW: Route to post messages to a specific discussion
-@app.route("/post_discussion_message/<room_id>", methods=["POST"])
+    else: # GET request
+        try:
+            topics_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics")
+            topics_stream = topics_ref.order_by("posted_at", direction=firestore.Query.DESCENDING).stream()
+            topics = [{"id": doc.id, **doc.to_dict()} for doc in topics_stream]
+            return jsonify(topics)
+        except Exception as e:
+            logger.error(f"Failed to fetch discussions: {e}")
+            return jsonify({"error": "Failed to fetch discussions"}), 500
+
+# API to post messages to a specific discussion
+@app.route("/api/discussions/<topic_id>/messages", methods=["POST"])
 @login_required
-def post_discussion_message(room_id):
+def post_discussion_message(topic_id):
+    if not db:
+        return jsonify({"error": "Database not configured"}), 500
+        
     data = request.get_json()
-    message_text = data.get("message")
+    message_text = data.get("text")
+    sender_type = "admin" if session.get("user_email") == ADMIN_USER else "user"
+
     if not message_text:
         return jsonify({"error": "Message text is required"}), 400
     
-    user_email = session.get("user_email")
-    if db and user_email:
-        try:
-            messages_ref = db.collection("discussions").document(room_id).collection("messages")
-            messages_ref.add({
-                "user": user_email,
-                "text": message_text,
-                "timestamp": firestore.SERVER_TIMESTAMP
-            })
-            return jsonify({"success": True})
-        except Exception as e:
-            logger.error(f"Failed to post message: {e}")
-            return jsonify({"error": "Failed to post message"}), 500
-    return jsonify({"error": "Database not configured or user not logged in"}), 500
+    try:
+        messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
+        messages_ref.add({
+            "text": message_text,
+            "senderId": request.auth.uid, # Assuming you have a way to get the Firebase UID from the session
+            "senderType": sender_type,
+            "timestamp": firestore.SERVER_TIMESTAMP
+        })
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Failed to post message: {e}")
+        return jsonify({"error": "Failed to post message"}), 500
 
-# NEW: Route to get all messages for a specific discussion
-@app.route("/get_discussion_messages/<room_id>", methods=["GET"])
+# API to get all messages for a specific discussion
+@app.route("/api/discussions/<topic_id>/messages", methods=["GET"])
 @login_required
-def get_discussion_messages(room_id):
-    if db:
-        try:
-            messages_ref = db.collection("discussions").document(room_id).collection("messages")
-            messages = messages_ref.order_by("timestamp").stream()
-            message_list = []
-            for msg in messages:
-                data = msg.to_dict()
-                message_list.append({
-                    "user": data.get("user"),
-                    "text": data.get("text"),
-                    "timestamp": data.get("timestamp").isoformat() if data.get("timestamp") else None
-                })
-            return jsonify(message_list)
-        except Exception as e:
-            logger.error(f"Failed to get messages: {e}")
-            return jsonify({"error": "Failed to get messages"}), 500
-    return jsonify([])
+def get_discussion_messages(topic_id):
+    if not db:
+        return jsonify({"error": "Database not configured"}), 500
 
-# NEW: Route to get the final summary of a discussion
-@app.route("/summarize_discussion/<room_id>", methods=["POST"])
-@login_required
-@limiter.limit("10 per day")
-def summarize_discussion(room_id):
-    if db:
-        try:
-            # Check if summary already exists and is recent
-            discussion_ref = db.collection("discussions").document(room_id)
-            doc = discussion_ref.get()
-            if not doc.exists:
-                return jsonify({"error": "Discussion room not found"}), 404
-            
-            data = doc.to_dict()
-            if "final_summary" in data and "summary_timestamp" in data:
-                summary_time = data["summary_timestamp"]
-                if isinstance(summary_time, datetime) and (datetime.utcnow() - summary_time.replace(tzinfo=None)).total_seconds() < 3600:
-                    return jsonify({"summary": data["final_summary"]})
-            
-            # Fetch all messages
-            messages_ref = db.collection("discussions").document(room_id).collection("messages")
-            messages = messages_ref.order_by("timestamp").stream()
-            discussion_text = "\n".join([f"{msg.to_dict().get('user')}: {msg.to_dict().get('text')}" for msg in messages])
-            
-            if not discussion_text:
-                return jsonify({"error": "No discussion to summarize"}), 400
+    try:
+        messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
+        messages = messages_ref.order_by("timestamp").stream()
+        message_list = [{"id": msg.id, **msg.to_dict()} for msg in messages]
+        return jsonify(message_list)
+    except Exception as e:
+        logger.error(f"Failed to get messages: {e}")
+        return jsonify({"error": "Failed to get messages"}), 500
 
-            # Call Gemini to summarize
-            prompt = f"Summarize the following discussion:\n\n{discussion_text}"
-            model = genai.GenerativeModel("gemini-1.5-flash")
-            response = model.generate_content(prompt)
-            summary = (response.text or "").strip()
-
-            # Save the summary to the discussion document
-            discussion_ref.update({
-                "final_summary": summary,
-                "summary_timestamp": firestore.SERVER_TIMESTAMP
-            })
-            return jsonify({"summary": summary})
-        except Exception as e:
-            logger.error(f"Failed to summarize discussion: {e}")
-            return jsonify({"error": "Summarization failed"}), 500
-    return jsonify({"error": "Database not configured"}), 500
-
-# --- Online Users Route ---
-@app.route("/online_users", methods=["GET"])
+# --- Online Users API ---
+@app.route("/api/online_users", methods=["GET"])
 @admin_required
 def online_users():
-    """
-    Returns a list of users who have been active in the last 15 minutes.
-    Uses in-memory storage for simplicity.
-    """
-    # Define a threshold for "online" activity
-    threshold = datetime.utcnow() - timedelta(minutes=15)
+    if not db:
+        return jsonify({"error": "Database not configured"}), 500
     
-    # Filter sessions based on last activity time
-    online_list = [
-        email for email, last_seen in active_sessions.items()
-        if last_seen > threshold
-    ]
-    
-    # Optional: Log the online users to the console
-    logger.info(f"Currently online users: {', '.join(online_list) or 'None'}")
-    
-    return jsonify({"online_users": online_list})
+    try:
+        presence_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("presence_users")
+        cutoff = datetime.utcnow() - timedelta(seconds=60)
+        online_users_stream = presence_ref.where(filter=FieldFilter("last_active", ">", cutoff)).stream()
+        online_users = [{"id": doc.id, **doc.to_dict()} for doc in online_users_stream]
+        return jsonify(online_users)
+    except Exception as e:
+        logger.error(f"Failed to fetch online users: {e}")
+        return jsonify({"error": "Failed to fetch online users"}), 500
 
 # --- Run ---
 if __name__ == "__main__":
