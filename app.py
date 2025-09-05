@@ -3,6 +3,7 @@ import re
 import json
 import uuid
 import hashlib
+import traceback
 from datetime import datetime, timedelta
 from functools import wraps
 
@@ -155,31 +156,17 @@ def admin_required(f):
     def decorated_function(*args, **kwargs):
         if session.get('user_email') != ADMIN_USER:
             return redirect(url_for('login'))
-        return f(*args, **kwargs)
-    return decorated_function
-
-def log_quiz_activity(user, action, details=""):
-    logger.info(f"{user} | {action} | {details}")
-
-# --- Middleware ---
-@app.before_request
-def before_request_hook():
-    # Update last activity for current session
-    if 'user_email' in session:
-        active_sessions[session['user_email']] = datetime.utcnow()
-
-@app.after_request
-def after_request_hook(response):
-    logger.info(f"{request.remote_addr} {request.method} {request.path} {response.status_code}")
-    return response
+        return decorated_function
 
 # --- Robust Gemini quiz parsing ---
 def _extract_first_json_block(text: str):
     if not text:
         return None
+    # First, look for code-fenced JSON
     m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
     if m:
         return m.group(1)
+    # Then, try to find a standalone JSON object
     m = re.search(r"(\{(?:.|\n)*\})", text)
     if m:
         return m.group(1)
@@ -427,10 +414,16 @@ def quiz():
 def generate_quiz():
     try:
         if "document" not in request.files:
+            logger.error("No file uploaded in the 'document' field.")
             return jsonify({"error": "No file uploaded (field: 'document')"}), 400
 
         file = request.files["document"]
-        if not file or not allowed_file(file.filename):
+        if file.filename == "":
+            logger.error("Uploaded file has an empty filename.")
+            return jsonify({"error": "No selected file"}), 400
+
+        if not allowed_file(file.filename):
+            logger.error(f"Invalid file type uploaded: {file.filename}")
             return jsonify({"error": "Invalid file type"}), 400
 
         grade = request.form.get("grade", "GL10")
@@ -438,41 +431,52 @@ def generate_quiz():
         filename = secure_filename(file.filename)
 
         suffix = os.path.splitext(filename)[1] or ".pdf"
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            file.save(tmp.name)
-            tmp_path = tmp.name
-
-        context_text = ""
+        tmp_path = None
+        
         try:
+            with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+                file.save(tmp.name)
+                tmp_path = tmp.name
+
+            logger.info(f"File saved temporarily to {tmp_path}")
+            
             raw_text = extract_text_from_file(tmp_path)
             context_text = preprocess_text_for_quiz(raw_text)
+            
+            if not context_text:
+                logger.error("Could not extract text from file or text was too sparse.")
+                return jsonify({"error": "Could not extract text from uploaded file or text was too sparse"}), 400
+            
+            cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 60, "genquiz")
+            cached = cache_get(cache_key)
+            if cached:
+                log_quiz_activity(session["user_email"], "cache_hit", filename)
+                return jsonify(cached)
+
+            logger.info(f"Calling Gemini for quiz generation from file: {filename}")
+            quiz = call_gemini_for_quiz(context_text, subject, grade)
+            
+            if not quiz or not quiz.get("questions"):
+                logger.error("Gemini model returned an empty or invalid quiz.")
+                return jsonify({"error": "No questions generated from the document"}), 500
+
+            cache_set(cache_key, quiz, ttl_minutes=60)
+            log_quiz_activity(session["user_email"], "generate_quiz", filename)
+            return jsonify(quiz)
+
+        except Exception as e:
+            logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+            return jsonify({"error": "Quiz generation failed due to a server error. Please check the log."}), 500
         finally:
-            try:
-                os.unlink(tmp_path)
-            except Exception as cleanup_err:
-                app.logger.warning(f"Could not delete temp file: {cleanup_err}")
-
-        if not context_text:
-            return jsonify({"error": "Could not extract text from uploaded file or text was too sparse"}), 400
-
-        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 60, "genquiz")
-        cached = cache_get(cache_key)
-        if cached:
-            log_quiz_activity(session["user_email"], "cache_hit", filename)
-            return jsonify(cached)
-
-        quiz = call_gemini_for_quiz(context_text, subject, grade)
-
-        if not quiz.get("questions"):
-            return jsonify({"error": "No questions generated"}), 500
-
-        cache_set(cache_key, quiz, ttl_minutes=60)
-        log_quiz_activity(session["user_email"], "generate_quiz", filename)
-        return jsonify(quiz)
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.unlink(tmp_path)
+                    logger.info(f"Temporary file {tmp_path} deleted successfully.")
+                except Exception as cleanup_err:
+                    logger.warning(f"Could not delete temp file: {cleanup_err}")
 
     except Exception as e:
-        import traceback
-        app.logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+        logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
         return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Quiz Scoring ---
@@ -480,6 +484,9 @@ def generate_quiz():
 @login_required
 def submit_quiz():
     data = request.get_json()
+    if not data:
+        return jsonify({"error": "Invalid request body"}), 400
+
     user_answers = data.get("answers", {})
     quiz_data = data.get("quiz_data", {})
     
