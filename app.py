@@ -359,6 +359,12 @@ def dashboard():
 def admin_dashboard():
     return render_template("admin_dashboard.html")
 
+@app.route("/quiz")
+@login_required
+def quiz():
+    """Renders the quiz page for the user."""
+    return render_template("quiz.html")
+
 # --- Free Trial Quiz API ---
 @app.route("/api/quiz/free", methods=["POST"])
 @login_required
