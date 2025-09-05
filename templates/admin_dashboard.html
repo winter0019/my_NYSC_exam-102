@@ -86,7 +86,7 @@
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
-    <!-- Custom Modal -->
+    <!-- Custom Modal for user feedback, replacing window.alert -->
     <div id="custom-modal" class="modal">
         <div class="modal-content">
             <div class="flex justify-between items-center mb-4">
@@ -100,7 +100,7 @@
         </div>
     </div>
 
-    <!-- Chat Modal -->
+    <!-- Chat Modal for discussions -->
     <div id="chat-modal" class="modal">
         <div class="modal-content !max-w-xl flex flex-col h-[80%]">
             <div class="flex justify-between items-center mb-4">
@@ -159,7 +159,7 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, Timestamp, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         
-        // Global variable checks
+        // Global variables provided by the environment
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
         const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
@@ -188,7 +188,7 @@
         const sendMessageForm = document.getElementById("send-message-form");
         const messageInput = document.getElementById("message-input");
 
-        // --- State Variables ---
+        // --- State Variables and Listeners ---
         let currentRoomId = null;
         let unsubscribeMessages = null;
         let unsubscribePresence = null;
@@ -234,20 +234,20 @@
             setDoc(presenceDocRef, {
                 userId: user.uid,
                 last_active: Timestamp.now(),
-                type: 'admin',
+                type: 'admin', // Label this user as an admin
                 current_room: roomId
             }, { merge: true }).catch(error => console.error("Failed to update presence:", error));
         };
 
-        // Main auth state listener
+        // Main auth state listener to handle sign-in and user state changes
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 statusMessageEl.textContent = `Welcome, Admin! 🎉`;
                 
-                // Track user presence
+                // Track user presence and update every 10 seconds
                 updatePresence(user, currentRoomId);
                 if (presenceIntervalId) clearInterval(presenceIntervalId);
-                presenceIntervalId = setInterval(() => updatePresence(user, currentRoomId), 10000); // Update every 10 seconds
+                presenceIntervalId = setInterval(() => updatePresence(user, currentRoomId), 10000); 
 
                 startListeningToDiscussions();
                 startListeningToOnlineUsers();
@@ -295,6 +295,7 @@
             }
 
             try {
+                // Add a new document to the 'discussion_topics' collection
                 const topicsColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
                 await addDoc(topicsColRef, {
                     question: question,
@@ -322,6 +323,7 @@
             e.preventDefault();
             const message = messageInput.value.trim();
             if (message && currentRoomId) {
+                // Add the message to the specific discussion topic's sub-collection
                 const messagesColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics/${currentRoomId}/messages`);
                 await addDoc(messagesColRef, {
                     text: message,
@@ -336,7 +338,10 @@
 
         // --- Real-time Listeners ---
         const startListeningToOnlineUsers = () => {
+            // Unsubscribe from previous listener if it exists
             if (unsubscribePresence) unsubscribePresence();
+            
+            // Listen to all users in the 'presence_users' collection
             const presenceColRef = collection(db, `artifacts/${appId}/public/data/presence_users`);
             const q = query(presenceColRef);
             unsubscribePresence = onSnapshot(q, (snapshot) => {
@@ -346,7 +351,7 @@
                 snapshot.forEach(doc => {
                     const data = doc.data();
                     if (data.last_active && data.last_active.seconds > cutoff) {
-                        const displayId = data.userId === auth.currentUser.uid ? 'You (Admin)' : `User ID: ${data.userId.substring(0, 8)}`;
+                        const displayId = data.userId === auth.currentUser.uid ? 'You (Admin)' : `User ID: ${data.userId}`;
                         onlineUsers.push(displayId);
                         if (data.current_room) {
                             roomCounts[data.current_room] = (roomCounts[data.current_room] || 0) + 1;
@@ -379,6 +384,7 @@
 
         const startListeningToDiscussions = () => {
             const topicsColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
+            // Listen for new discussion topics in real-time
             onSnapshot(topicsColRef, (snapshot) => {
                 discussionTopicsListEl.innerHTML = '';
                 snapshot.forEach(doc => {
@@ -408,6 +414,7 @@
 
         const startListeningToMessages = (topicId) => {
             if (unsubscribeMessages) unsubscribeMessages();
+            // Listen for new messages in a specific discussion topic
             const messagesColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics/${topicId}/messages`);
             const q = query(messagesColRef);
             unsubscribeMessages = onSnapshot(q, (snapshot) => {
@@ -418,7 +425,7 @@
                     const messageEl = document.createElement('div');
                     messageEl.classList.add('message-bubble', isMyMessage ? 'admin-bubble' : 'user-bubble');
 
-                    const senderName = isMyMessage ? 'You' : `User ID: ${data.senderId.substring(0, 8)}`;
+                    const senderName = isMyMessage ? 'You' : `User ID: ${data.senderId}`;
                     messageEl.innerHTML = `<p class="font-bold mb-1">${senderName}</p><p>${data.text}</p>`;
 
                     chatMessageList.appendChild(messageEl);
