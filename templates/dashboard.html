@@ -40,6 +40,22 @@
                 opacity: 1;
             }
         }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 32px;
+            height: 32px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .selected-option {
+            background-color: #f0f4f8;
+            border-color: #2563eb;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
@@ -51,8 +67,11 @@
                 <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
                 <button onclick="hideModal()" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
             </div>
-            <p id="modal-message" class="text-gray-700 mb-4"></p>
-            <div class="flex justify-end">
+            <div id="modal-message-container">
+                <p id="modal-message" class="text-gray-700 mb-4"></p>
+                <div id="modal-spinner" class="hidden loading-spinner mx-auto my-4"></div>
+            </div>
+            <div id="modal-actions" class="flex justify-end hidden">
                 <button onclick="hideModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none">OK</button>
             </div>
         </div>
@@ -72,12 +91,47 @@
                 <h2 class="text-lg font-semibold mb-4 text-gray-800">Exam Tools</h2>
                 <p class="mb-4 text-gray-700">Choose how you want to practice:</p>
                 <div class="flex flex-col sm:flex-row gap-4">
-                    <button onclick="showModal('Not Available', 'This feature is not available in the current single-file version. Please use the discussion room below.')" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Upload & Generate Quiz</button>
-                    <button onclick="showModal('Not Available', 'This feature is not available in the current single-file version. Please use the discussion room below.')" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">Free Trial Quiz</button>
+                    <button id="quiz-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Generate Quiz</button>
+                    <button id="discussion-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">Discussion Room</button>
                 </div>
             </section>
 
-            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+            <!-- Quiz Generator Section -->
+            <section id="quiz-generator-section" class="hidden bg-gray-100 p-6 rounded-lg shadow-inner">
+                <h2 class="text-lg font-semibold mb-2 text-gray-800">Generate Quiz from Text or Image</h2>
+                <p class="mb-2 text-gray-600 text-sm">Upload an image of your study materials, or paste text below. (For PDF/DOCX, please copy and paste text.)</p>
+                
+                <div class="mb-4">
+                    <label for="image-upload" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200">Upload Image</label>
+                    <input type="file" id="image-upload" accept="image/*" class="hidden">
+                    <span id="file-name" class="ml-3 text-gray-500 text-sm">No file selected</span>
+                </div>
+                
+                <div id="image-preview-container" class="mt-4 hidden mb-4">
+                    <img id="image-preview" src="#" alt="Image Preview" class="max-w-full h-auto rounded-lg shadow-md border border-gray-300">
+                </div>
+
+                <textarea id="source-text" class="w-full h-40 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Or, paste your study material, a chapter summary, or notes here..."></textarea>
+                <div class="flex justify-end mt-4">
+                    <button id="generate-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Generate Quiz</button>
+                </div>
+
+                <div id="quiz-flow-container" class="mt-6 hidden">
+                    <!-- This div will hold the single question or the final results -->
+                    <div id="quiz-container" class="space-y-6">
+                        <!-- Quiz question and options will be inserted here -->
+                    </div>
+                    <div id="quiz-navigation" class="flex justify-end mt-4">
+                        <button id="next-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Next</button>
+                    </div>
+                    <div id="quiz-results" class="hidden">
+                        <!-- Final score and review will be displayed here -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Discussion Room Section -->
+            <section id="discussion-room-section" class="bg-gray-100 p-6 rounded-lg shadow-inner">
                 <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
                     <h2 class="text-lg font-semibold text-gray-800">Discussion Room</h2>
                     <button id="summary-btn" class="bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm">Get Final Summary</button>
@@ -107,7 +161,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, onSnapshot, collection, query, orderBy, setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { getFirestore, doc, getDoc, addDoc, onSnapshot, collection, query, orderBy, setLogLevel, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
         // Global variable checks
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
@@ -124,21 +178,50 @@
         const statusEl = document.getElementById("status");
         const contentEl = document.getElementById("content");
         const logoutBtn = document.getElementById("logout-btn");
+        const userIdDisplay = document.getElementById("user-id-display");
+        
+        // Navigation buttons
+        const quizBtn = document.getElementById("quiz-btn");
+        const discussionBtn = document.getElementById("discussion-btn");
+
+        // Quiz Generator Elements
+        const quizGeneratorSection = document.getElementById("quiz-generator-section");
+        const sourceTextEl = document.getElementById("source-text");
+        const imageUploadEl = document.getElementById("image-upload");
+        const fileNameEl = document.getElementById("file-name");
+        const imagePreviewContainer = document.getElementById("image-preview-container");
+        const imagePreviewEl = document.getElementById("image-preview");
+        const generateBtn = document.getElementById("generate-btn");
+        const quizFlowContainer = document.getElementById("quiz-flow-container");
+        const quizContainer = document.getElementById("quiz-container");
+        const nextBtn = document.getElementById("next-btn");
+        const quizResultsEl = document.getElementById("quiz-results");
+
+        // Discussion Room Elements
+        const discussionRoomSection = document.getElementById("discussion-room-section");
         const discussionQuestionEl = document.getElementById("discussion-question");
         const discussionMessagesEl = document.getElementById("discussion-messages");
         const discussionForm = document.getElementById("discussion-form");
         const messageInput = document.getElementById("message-input");
         const summaryBtn = document.getElementById("summary-btn");
-        const userIdDisplay = document.getElementById("user-id-display");
 
         // --- Custom Modal Functions ---
         const modal = document.getElementById("custom-modal");
         const modalTitle = document.getElementById("modal-title");
         const modalMessage = document.getElementById("modal-message");
-        
-        function showModal(title, message) {
+        const modalActions = document.getElementById("modal-actions");
+        const modalSpinner = document.getElementById("modal-spinner");
+
+        function showModal(title, message, showSpinner = false) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
+            if (showSpinner) {
+                modalSpinner.classList.remove('hidden');
+                modalActions.classList.add('hidden');
+            } else {
+                modalSpinner.classList.add('hidden');
+                modalActions.classList.remove('hidden');
+            }
             modal.style.display = 'flex';
         }
         
@@ -146,10 +229,19 @@
             modal.style.display = 'none';
         }
 
+        // --- Navigation Logic ---
+        function showSection(sectionId) {
+            quizGeneratorSection.classList.add('hidden');
+            discussionRoomSection.classList.add('hidden');
+            document.getElementById(sectionId).classList.remove('hidden');
+        }
+
+        quizBtn.addEventListener('click', () => showSection('quiz-generator-section'));
+        discussionBtn.addEventListener('click', () => showSection('discussion-room-section'));
+
         // --- Authentication Logic ---
         onAuthStateChanged(auth, async (user) => {
             if (user) {
-                // User is signed in.
                 const userId = user.uid;
                 userIdDisplay.textContent = `User ID: ${userId}`;
                 statusEl.textContent = "Welcome to NYSC Exam Prep! 🎓 You are now logged in.";
@@ -158,10 +250,8 @@
                 await fetchDiscussionTopic();
                 setupDiscussionListener();
             } else {
-                // User is signed out.
                 statusEl.textContent = "Please wait, signing you in...";
                 contentEl.style.display = 'none';
-
                 try {
                     if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
@@ -197,8 +287,7 @@
                 if (topicDoc.exists()) {
                     discussionQuestionEl.textContent = topicDoc.data().question;
                 } else {
-                    discussionQuestionEl.textContent = "Could not load discussion topic.";
-                    // Optional: Create a default topic if one doesn't exist
+                    discussionQuestionEl.textContent = "Could not load discussion topic. A new one will be created shortly.";
                     await setDoc(topicDocRef, { question: "What are the most effective study techniques for the NYSC exam?" });
                 }
             } catch (error) {
@@ -219,7 +308,7 @@
                 } else {
                     snapshot.forEach(doc => {
                         const msg = doc.data();
-                        messages.push(msg); // Store messages for summarization
+                        messages.push(msg);
                         const msgEl = document.createElement('div');
                         msgEl.className = 'mb-2 p-2 rounded-lg bg-gray-50';
                         const userLabel = msg.userId === auth.currentUser.uid ? "You" : `User (${msg.userId.substring(0, 4)}...)`;
@@ -300,6 +389,218 @@
                 summaryBtn.disabled = false;
             }
         });
+
+        // --- Quiz Generation Logic ---
+        let base64Image = null;
+        let quizQuestions = [];
+        let currentQuestionIndex = 0;
+        let userAnswers = [];
+
+        imageUploadEl.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (!file) {
+                fileNameEl.textContent = 'No file selected';
+                imagePreviewContainer.classList.add('hidden');
+                base64Image = null;
+                return;
+            }
+
+            fileNameEl.textContent = file.name;
+            const reader = new FileReader();
+            reader.onload = () => {
+                base64Image = reader.result.split(',')[1];
+                imagePreviewEl.src = reader.result;
+                imagePreviewContainer.classList.remove('hidden');
+                sourceTextEl.value = ''; // Clear text area if image is uploaded
+            };
+            reader.readAsDataURL(file);
+        });
+
+        generateBtn.addEventListener('click', async () => {
+            const documentContent = sourceTextEl.value.trim();
+            
+            if (!documentContent && !base64Image) {
+                showModal('No Input', 'Please paste text or upload an image to generate a quiz.');
+                return;
+            }
+
+            showModal('Generating Quiz...', 'Please wait while the AI analyzes your content and generates the questions.', true);
+            quizContainer.innerHTML = '';
+
+            const systemPrompt = "You are a quiz-generating AI for exam preparation. Your task is to analyze the provided content and generate a 5-question, multiple-choice quiz. The output MUST be a JSON array of objects, where each object has a 'question' (string), 'options' (an array of 4 strings), and 'answer' (the correct option from the array).";
+            
+            const parts = [];
+
+            if (base64Image) {
+                parts.push({
+                    text: "Generate a 5-question quiz based on the text and concepts in this image."
+                });
+                parts.push({
+                    inlineData: {
+                        mimeType: "image/jpeg", // Assuming JPEG, but could be dynamic
+                        data: base64Image
+                    }
+                });
+            } else {
+                 if (documentContent.length < 50) {
+                    showModal('Input Too Short', 'Please paste at least 50 characters of text to generate a meaningful quiz.');
+                    return;
+                }
+                parts.push({ text: `Generate a 5-question quiz from the following text:\n\n${documentContent}` });
+            }
+            
+            const payload = {
+                contents: [{ parts: parts }],
+                systemInstruction: {
+                    parts: [{ text: systemPrompt }]
+                },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "question": { "type": "STRING" },
+                                "options": {
+                                    "type": "ARRAY",
+                                    "items": { "type": "STRING" },
+                                    "minItems": 4,
+                                    "maxItems": 4
+                                },
+                                "answer": { "type": "STRING" }
+                            },
+                            "propertyOrdering": ["question", "options", "answer"]
+                        }
+                    }
+                }
+            };
+            
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            try {
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const result = await response.json();
+                
+                if (result.candidates && result.candidates.length > 0 &&
+                    result.candidates[0].content && result.candidates[0].content.parts &&
+                    result.candidates[0].content.parts.length > 0) {
+                    
+                    const jsonString = result.candidates[0].content.parts[0].text;
+                    const parsedQuiz = JSON.parse(jsonString);
+
+                    startQuiz(parsedQuiz);
+                    hideModal();
+                } else {
+                    console.error("API response was empty or malformed:", result);
+                    showModal('Generation Failed', 'Could not generate quiz. Please try again with a different text/image.');
+                }
+            } catch (error) {
+                console.error("API call failed:", error);
+                showModal('Generation Failed', 'An error occurred. Please ensure your input is clear and try again.');
+            }
+        });
+
+        function startQuiz(questions) {
+            quizQuestions = questions;
+            currentQuestionIndex = 0;
+            userAnswers = [];
+            quizFlowContainer.classList.remove('hidden');
+            quizResultsEl.classList.add('hidden');
+            displayQuestion();
+        }
+
+        function displayQuestion() {
+            if (currentQuestionIndex < quizQuestions.length) {
+                const q = quizQuestions[currentQuestionIndex];
+                const questionHtml = `
+                    <div class="question-item p-4 bg-gray-50 rounded-lg shadow-sm">
+                        <p class="font-semibold text-gray-700 mb-2">Question ${currentQuestionIndex + 1} of ${quizQuestions.length}: ${q.question}</p>
+                        <ul class="space-y-2">
+                            ${q.options.map((option, idx) => `
+                                <li class="option-item p-2 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors duration-150" data-option="${option}">
+                                    ${option}
+                                </li>
+                            `).join('')}
+                        </ul>
+                    </div>
+                `;
+                quizContainer.innerHTML = questionHtml;
+                nextBtn.textContent = currentQuestionIndex === quizQuestions.length - 1 ? 'Submit Quiz' : 'Next';
+
+                document.querySelectorAll('.option-item').forEach(item => {
+                    item.addEventListener('click', (e) => {
+                        document.querySelectorAll('.option-item').forEach(opt => opt.classList.remove('selected-option'));
+                        e.target.classList.add('selected-option');
+                    });
+                });
+            }
+        }
+        
+        nextBtn.addEventListener('click', () => {
+            const selectedOptionEl = document.querySelector('.option-item.selected-option');
+            if (!selectedOptionEl) {
+                showModal('No Answer Selected', 'Please select an answer before proceeding.');
+                return;
+            }
+
+            const selectedAnswer = selectedOptionEl.dataset.option;
+            userAnswers[currentQuestionIndex] = selectedAnswer;
+
+            if (currentQuestionIndex === quizQuestions.length - 1) {
+                showResults();
+            } else {
+                currentQuestionIndex++;
+                displayQuestion();
+            }
+        });
+
+        function showResults() {
+            quizContainer.classList.add('hidden');
+            quizResultsEl.classList.remove('hidden');
+            nextBtn.classList.add('hidden');
+
+            let score = 0;
+            let resultsHtml = `<h3 class="text-xl font-bold mb-4">Quiz Results</h3>`;
+            
+            quizQuestions.forEach((q, index) => {
+                const userAnswer = userAnswers[index];
+                const isCorrect = userAnswer === q.answer;
+                if (isCorrect) {
+                    score++;
+                }
+
+                resultsHtml += `
+                    <div class="p-4 rounded-lg mb-4 ${isCorrect ? 'bg-green-100' : 'bg-red-100'}">
+                        <p class="font-semibold text-gray-800 mb-2">Question ${index + 1}: ${q.question}</p>
+                        <ul class="space-y-1 text-sm">
+                            ${q.options.map(option => `
+                                <li class="${option === q.answer ? 'font-bold text-green-700' : ''} ${option === userAnswer && !isCorrect ? 'line-through text-red-500' : ''}">
+                                    ${option} ${option === q.answer ? '[Correct]' : ''} ${option === userAnswer && !isCorrect ? '[Your Answer]' : ''}
+                                </li>
+                            `).join('')}
+                        </ul>
+                        <p class="mt-2 ${isCorrect ? 'text-green-700' : 'text-red-700'}">
+                            You answered: **${userAnswer}** (${isCorrect ? 'Correct' : 'Incorrect'})
+                        </p>
+                    </div>
+                `;
+            });
+
+            resultsHtml = `
+                <div class="p-6 bg-white rounded-lg shadow-md">
+                    <h3 class="text-xl font-bold text-gray-800 mb-4">Your Score: ${score} / ${quizQuestions.length}</h3>
+                    ${resultsHtml}
+                </div>
+            `;
+
+            quizResultsEl.innerHTML = resultsHtml;
+        }
     </script>
 </body>
 </html>
