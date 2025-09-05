@@ -1,438 +1,298 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYSC Exam Prep - Admin Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            transition: all 0.3s ease-in-out;
-        }
-        .online-list-item {
-            display: flex;
-            align-items: center;
-            padding: 4px 0;
-        }
-        .online-list-item::before {
-            content: "•";
-            color: #10B981; /* Green color */
-            font-size: 1.5rem;
-            line-height: 1;
-            margin-right: 8px;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 100;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            justify-content: center;
-            align-items: center;
-            backdrop-filter: blur(5px);
-        }
-        .modal-content {
-            background-color: #fefefe;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            width: 90%;
-            max-width: 500px;
-            animation: slideIn 0.3s ease-out;
-        }
-        @keyframes slideIn {
-            from {
-                transform: translateY(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        .chat-message-list {
-            height: 400px;
-            overflow-y: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 16px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-        .message-bubble {
-            padding: 8px 12px;
-            border-radius: 12px;
-            max-width: 80%;
-            word-wrap: break-word;
-        }
-        .admin-bubble {
-            background-color: #3B82F6;
-            color: white;
-            align-self: flex-end;
-            border-bottom-right-radius: 4px;
-        }
-        .user-bubble {
-            background-color: #E5E7EB;
-            color: #374151;
-            align-self: flex-start;
-            border-bottom-left-radius: 4px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NYSC Exam Prep - Admin Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
 </head>
-<body class="bg-gray-50 min-h-screen p-6">
-    <!-- Custom Modal for user feedback, replacing window.alert -->
-    <div id="custom-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
-                <button onclick="hideModal()" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
-            </div>
-            <p id="modal-message" class="text-gray-700 mb-4"></p>
-            <div id="modal-actions" class="flex justify-end">
-                <button onclick="hideModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none">OK</button>
-            </div>
-        </div>
+<body class="bg-gray-50 min-h-screen p-6 font-sans transition">
+
+  <!-- Custom Modal -->
+  <div id="custom-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur">
+    <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-md p-6 transform transition-all duration-200 scale-95 opacity-0"
+         id="custom-modal-content">
+      <div class="flex justify-between items-center mb-4">
+        <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
+        <button onclick="hideModal()" class="text-gray-500 hover:text-gray-800">&times;</button>
+      </div>
+      <p id="modal-message" class="text-gray-700 mb-4"></p>
+      <div class="flex justify-end">
+        <button onclick="hideModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          OK
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Chat Modal -->
+  <div id="chat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur">
+    <div class="bg-white rounded-xl shadow-xl w-11/12 max-w-2xl h-[80%] flex flex-col p-6 transform transition-all duration-200 scale-95 opacity-0"
+         id="chat-modal-content">
+      <div class="flex justify-between items-center mb-4">
+        <h3 class="text-xl font-bold text-gray-800">Discussion Room</h3>
+        <button id="leave-room-btn" class="text-gray-500 hover:text-gray-800">&times;</button>
+      </div>
+      <p id="chat-topic-question" class="text-gray-600 italic mb-4"></p>
+      <div id="chat-message-list" class="flex-1 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-3"></div>
+      <form id="send-message-form" class="flex gap-2 mt-4">
+        <input id="message-input" type="text" placeholder="Type a message..."
+               class="flex-1 rounded-md border-gray-300 focus:border-blue-500 focus:ring-blue-500 p-2" />
+        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">
+          Send
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Main Dashboard -->
+  <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
+    <div class="flex justify-between items-center mb-6">
+      <h1 class="text-2xl font-bold">Admin Dashboard</h1>
+      <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Logout</button>
     </div>
 
-    <!-- Chat Modal for discussions -->
-    <div id="chat-modal" class="modal">
-        <div class="modal-content !max-w-xl flex flex-col h-[80%]">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="chat-modal-title" class="text-xl font-bold text-gray-800">Discussion Room</h3>
-                <button id="leave-room-btn" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
-            </div>
-            <p id="chat-topic-question" class="text-gray-600 italic mb-4"></p>
-            <div id="chat-message-list" class="chat-message-list flex-grow"></div>
-            <form id="send-message-form" class="flex gap-2 mt-4">
-                <input type="text" id="message-input" placeholder="Type a message..." class="flex-grow rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
-                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Send</button>
-            </form>
+    <p id="status-message" class="mb-4 text-gray-600">Authenticating...</p>
+
+    <!-- Live Stats -->
+    <section class="bg-gray-100 p-6 rounded-lg shadow-inner mb-6">
+      <h2 class="text-lg font-semibold mb-4">Live Statistics</h2>
+      <p class="text-sm text-gray-600 mb-4">Online user data updates every 10 seconds. User IDs are displayed to help with moderation.</p>
+      <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold text-lg">...</span></p>
+      <ul id="online-users-list" class="mt-2 space-y-1"></ul>
+    </section>
+
+    <!-- Create Discussion -->
+    <section class="bg-gray-100 p-6 rounded-lg shadow-inner mb-6">
+      <h2 class="text-lg font-semibold mb-4">Create Discussion Topic</h2>
+      <form id="create-discussion-form" class="space-y-4">
+        <div>
+          <label for="discussion-question-input" class="block text-sm font-medium text-gray-700">Discussion Question</label>
+          <textarea id="discussion-question-input" rows="4" required
+                    class="mt-1 w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"></textarea>
         </div>
-    </div>
+        <button type="submit" id="post-discussion-btn"
+                class="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">
+          Post Discussion
+        </button>
+      </form>
+    </section>
 
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold">Admin Dashboard</h1>
-            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Logout</button>
-        </div>
+    <!-- Active Topics -->
+    <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
+      <h2 class="text-lg font-semibold mb-4">Active Discussion Topics</h2>
+      <p class="text-sm text-gray-600 mb-4">Click "Join" to enter a discussion room and moderate the chat.</p>
+      <ul id="discussion-topics-list" class="space-y-4"></ul>
+    </section>
+  </div>
 
-        <div id="content" class="space-y-6">
-            <p id="status-message" class="mb-4 text-gray-600">Authenticating...</p>
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, onSnapshot, collection, query, Timestamp, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4">Live Statistics</h2>
-                <p class="mb-4 text-gray-600 text-sm">Online user data updates every 10 seconds. User IDs are displayed to help with moderation.</p>
-                <div class="space-y-2">
-                    <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold text-lg">...</span></p>
-                    <ul id="online-users-list" class="space-y-1"></ul>
-                </div>
-            </section>
+    // Global vars from backend
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
 
-            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4">Create Discussion Topic</h2>
-                <p class="mb-4 text-gray-600">Post a new question for all users to discuss.</p>
-                <form id="create-discussion-form" class="space-y-4">
-                    <div>
-                        <label for="discussion-question-input" class="block text-sm font-medium text-gray-700">Discussion Question</label>
-                        <textarea id="discussion-question-input" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"></textarea>
-                    </div>
-                    <button type="submit" id="post-discussion-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Post Discussion</button>
-                </form>
-            </section>
+    // DOM elements
+    const logoutBtn = document.getElementById("logout-btn");
+    const statusMessageEl = document.getElementById("status-message");
+    const onlineUsersEl = document.getElementById("online-users");
+    const onlineUsersListEl = document.getElementById("online-users-list");
+    const createDiscussionForm = document.getElementById("create-discussion-form");
+    const discussionQuestionInput = document.getElementById("discussion-question-input");
+    const discussionTopicsListEl = document.getElementById("discussion-topics-list");
+    const postDiscussionBtn = document.getElementById("post-discussion-btn");
 
-            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4">Active Discussion Topics</h2>
-                <p class="mb-4 text-gray-600">Click "Join" to enter a discussion room and moderate the chat.</p>
-                <ul id="discussion-topics-list" class="space-y-4"></ul>
-            </section>
-        </div>
-    </div>
+    // Modals
+    const modal = document.getElementById("custom-modal");
+    const modalContent = document.getElementById("custom-modal-content");
+    const modalTitle = document.getElementById("modal-title");
+    const modalMessage = document.getElementById("modal-message");
+    function showModal(title, msg) {
+      modalTitle.textContent = title;
+      modalMessage.textContent = msg;
+      modal.classList.remove("hidden");
+      modalContent.classList.remove("scale-95", "opacity-0");
+      modalContent.classList.add("scale-100", "opacity-100");
+    }
+    function hideModal() {
+      modal.classList.add("hidden");
+      modalContent.classList.add("scale-95", "opacity-0");
+      modalContent.classList.remove("scale-100", "opacity-100");
+    }
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, Timestamp, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-        
-        // Global variables provided by the environment
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    const chatModal = document.getElementById("chat-modal");
+    const chatModalContent = document.getElementById("chat-modal-content");
+    const chatTopicQuestion = document.getElementById("chat-topic-question");
+    const leaveRoomBtn = document.getElementById("leave-room-btn");
+    const chatMessageList = document.getElementById("chat-message-list");
+    const sendMessageForm = document.getElementById("send-message-form");
+    const messageInput = document.getElementById("message-input");
+    let currentRoomId = null;
+    let unsubscribeMessages = null;
+    let unsubscribePresence = null;
+    let presenceIntervalId = null;
+    function showChatModal(topicId, question) {
+      currentRoomId = topicId;
+      chatTopicQuestion.textContent = question;
+      chatModal.classList.remove("hidden");
+      chatModalContent.classList.remove("scale-95", "opacity-0");
+      chatModalContent.classList.add("scale-100", "opacity-100");
+      startListeningToMessages(topicId);
+    }
+    function hideChatModal() {
+      currentRoomId = null;
+      chatModal.classList.add("hidden");
+      chatModalContent.classList.add("scale-95", "opacity-0");
+      chatModalContent.classList.remove("scale-100", "opacity-100");
+      chatMessageList.innerHTML = "";
+      if (unsubscribeMessages) { unsubscribeMessages(); unsubscribeMessages = null; }
+    }
 
-        // --- DOM Elements ---
-        const logoutBtn = document.getElementById("logout-btn");
-        const onlineUsersEl = document.getElementById("online-users");
-        const onlineUsersListEl = document.getElementById("online-users-list");
-        const createDiscussionForm = document.getElementById("create-discussion-form");
-        const discussionQuestionInput = document.getElementById("discussion-question-input");
-        const statusMessageEl = document.getElementById("status-message");
-        const discussionTopicsListEl = document.getElementById("discussion-topics-list");
-        const postDiscussionBtn = document.getElementById("post-discussion-btn");
+    // Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const auth = getAuth(app);
 
-        // Custom Modal Elements
-        const modal = document.getElementById("custom-modal");
-        const modalTitle = document.getElementById("modal-title");
-        const modalMessage = document.getElementById("modal-message");
+    const updatePresence = (user, roomId=null) => {
+      const ref = doc(db, `artifacts/${appId}/public/data/presence_users/${user.uid}`);
+      setDoc(ref, { userId: user.uid, last_active: Timestamp.now(), type: "admin", current_room: roomId }, { merge: true });
+    };
 
-        // Chat Modal Elements
-        const chatModal = document.getElementById("chat-modal");
-        const chatModalTitle = document.getElementById("chat-modal-title");
-        const chatTopicQuestion = document.getElementById("chat-topic-question");
-        const leaveRoomBtn = document.getElementById("leave-room-btn");
-        const chatMessageList = document.getElementById("chat-message-list");
-        const sendMessageForm = document.getElementById("send-message-form");
-        const messageInput = document.getElementById("message-input");
-
-        // --- State Variables and Listeners ---
-        let currentRoomId = null;
-        let unsubscribeMessages = null;
-        let unsubscribePresence = null;
-        let presenceIntervalId = null;
-
-        // --- Modal Functions ---
-        function showModal(title, message) {
-            modalTitle.textContent = title;
-            modalMessage.textContent = message;
-            modal.style.display = 'flex';
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        statusMessageEl.textContent = `Welcome, Admin 🎉`;
+        updatePresence(user, currentRoomId);
+        if (presenceIntervalId) clearInterval(presenceIntervalId);
+        presenceIntervalId = setInterval(() => updatePresence(user, currentRoomId), 10000);
+        startListeningToDiscussions();
+        startListeningToOnlineUsers();
+      } else {
+        statusMessageEl.textContent = "Signing you in...";
+        if (presenceIntervalId) clearInterval(presenceIntervalId);
+        if (unsubscribePresence) unsubscribePresence();
+        if (unsubscribeMessages) unsubscribeMessages();
+        try {
+          if (initialAuthToken) await signInWithCustomToken(auth, initialAuthToken);
+          else await signInAnonymously(auth);
+        } catch (err) {
+          console.error(err); showModal("Auth Error","Failed to sign in.");
         }
+      }
+    });
 
-        function hideModal() {
-            modal.style.display = 'none';
-        }
+    logoutBtn.addEventListener("click", async () => {
+      try { await signOut(auth); showModal("Logged Out","You have been signed out."); }
+      catch { showModal("Logout Failed","Could not sign out."); }
+    });
 
-        function showChatModal(topicId, question) {
-            currentRoomId = topicId;
-            chatModalTitle.textContent = "Discussion Room";
-            chatTopicQuestion.textContent = question;
-            chatModal.style.display = 'flex';
-            startListeningToMessages(topicId);
-        }
+    createDiscussionForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      postDiscussionBtn.disabled = true; postDiscussionBtn.textContent = "Posting...";
+      const q = discussionQuestionInput.value.trim();
+      if (!q) { showModal("Invalid Input","Question cannot be empty."); postDiscussionBtn.disabled=false; postDiscussionBtn.textContent="Post Discussion"; return; }
+      try {
+        const ref = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
+        await addDoc(ref, { question: q, posted_at: Timestamp.now() });
+        showModal("Success","Discussion posted!");
+        discussionQuestionInput.value="";
+      } catch(err) { showModal("Error",err.message); }
+      postDiscussionBtn.disabled=false; postDiscussionBtn.textContent="Post Discussion";
+    });
 
-        function hideChatModal() {
-            currentRoomId = null;
-            chatModal.style.display = 'none';
-            chatMessageList.innerHTML = '';
-            if (unsubscribeMessages) {
-                unsubscribeMessages();
-                unsubscribeMessages = null;
-            }
-        }
+    leaveRoomBtn.addEventListener("click", () => {
+      if (auth.currentUser) updatePresence(auth.currentUser,null);
+      hideChatModal();
+    });
 
-        // --- Firebase Initialization and Auth Logic ---
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+    sendMessageForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const msg = messageInput.value.trim();
+      if (msg && currentRoomId) {
+        const ref = collection(db, `artifacts/${appId}/public/data/discussion_topics/${currentRoomId}/messages`);
+        await addDoc(ref, { text: msg, senderId: auth.currentUser.uid, senderType: "admin", timestamp: Timestamp.now() });
+        messageInput.value="";
+        chatMessageList.scrollTop = chatMessageList.scrollHeight;
+      }
+    });
 
-        // Function to update user presence in Firestore
-        const updatePresence = (user, roomId = null) => {
-            const presenceDocRef = doc(db, `artifacts/${appId}/public/data/presence_users/${user.uid}`);
-            setDoc(presenceDocRef, {
-                userId: user.uid,
-                last_active: Timestamp.now(),
-                type: 'admin', // Label this user as an admin
-                current_room: roomId
-            }, { merge: true }).catch(error => console.error("Failed to update presence:", error));
-        };
-
-        // Main auth state listener to handle sign-in and user state changes
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                statusMessageEl.textContent = `Welcome, Admin! 🎉`;
-                
-                // Track user presence and update every 10 seconds
-                updatePresence(user, currentRoomId);
-                if (presenceIntervalId) clearInterval(presenceIntervalId);
-                presenceIntervalId = setInterval(() => updatePresence(user, currentRoomId), 10000); 
-
-                startListeningToDiscussions();
-                startListeningToOnlineUsers();
-
-            } else {
-                statusMessageEl.textContent = `Signing you in...`;
-                if (presenceIntervalId) clearInterval(presenceIntervalId);
-                if (unsubscribePresence) unsubscribePresence();
-                if (unsubscribeMessages) unsubscribeMessages();
-
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Firebase Auth failed:", error);
-                    showModal('Authentication Error', 'Failed to sign in. Please try again later.');
-                }
-            }
+    const startListeningToOnlineUsers = () => {
+      if (unsubscribePresence) unsubscribePresence();
+      const ref = collection(db, `artifacts/${appId}/public/data/presence_users`);
+      unsubscribePresence = onSnapshot(query(ref), (snap) => {
+        const cutoff = Timestamp.now().seconds - 60;
+        const online = [];
+        const counts = {};
+        snap.forEach(d => {
+          const data = d.data();
+          if (data.last_active?.seconds > cutoff) {
+            const id = data.userId===auth.currentUser.uid ? "You (Admin)" : `User: ${data.userId}`;
+            online.push(id);
+            if (data.current_room) counts[data.current_room] = (counts[data.current_room]||0)+1;
+          }
         });
-
-        // --- Event Listeners ---
-        logoutBtn.addEventListener("click", async () => {
-            try {
-                await signOut(auth);
-                showModal('Logged Out', 'You have been successfully logged out.');
-            } catch (error) {
-                console.error("Firebase sign out failed:", error);
-                showModal('Logout Failed', 'An error occurred during logout.');
-            }
+        onlineUsersEl.textContent = online.length;
+        onlineUsersListEl.innerHTML="";
+        online.forEach(id => {
+          const li = document.createElement("li");
+          li.className="flex items-center gap-2 text-gray-700";
+          li.innerHTML=`<span class="text-green-500">•</span>${id}`;
+          onlineUsersListEl.appendChild(li);
         });
+        updateDiscussionCounts(counts);
+      });
+    };
 
-        createDiscussionForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            postDiscussionBtn.disabled = true;
-            postDiscussionBtn.textContent = 'Posting...';
-            const question = discussionQuestionInput.value.trim();
-            if (!question) {
-                showModal('Invalid Input', 'Discussion question cannot be empty.');
-                postDiscussionBtn.disabled = false;
-                postDiscussionBtn.textContent = 'Post Discussion';
-                return;
-            }
+    const updateDiscussionCounts = (counts) => {
+      discussionTopicsListEl.querySelectorAll(".topic-item").forEach(el => {
+        const count = counts[el.dataset.id] || 0;
+        el.querySelector(".user-count").textContent = `${count} User${count!==1?"s":""}`;
+      });
+    };
 
-            try {
-                // Add a new document to the 'discussion_topics' collection
-                const topicsColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
-                await addDoc(topicsColRef, {
-                    question: question,
-                    posted_at: Timestamp.now()
-                });
-                showModal('Success', 'New discussion topic posted successfully!');
-                discussionQuestionInput.value = '';
-            } catch (error) {
-                console.error("Failed to post discussion:", error);
-                showModal('Error', `An error occurred: ${error.message}. Check the console for details.`);
-            } finally {
-                postDiscussionBtn.disabled = false;
-                postDiscussionBtn.textContent = 'Post Discussion';
-            }
+    const startListeningToDiscussions = () => {
+      const ref = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
+      onSnapshot(ref, (snap) => {
+        discussionTopicsListEl.innerHTML="";
+        snap.forEach(d => {
+          const data=d.data(), id=d.id;
+          const li=document.createElement("li");
+          li.dataset.id=id;
+          li.className="bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col gap-2 topic-item";
+          li.innerHTML=`
+            <p class="font-semibold text-gray-800">${data.question}</p>
+            <div class="flex items-center justify-between text-sm text-gray-500">
+              <span class="user-count">0 Users</span>
+              <button class="join-btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700">Join</button>
+            </div>`;
+          li.querySelector(".join-btn").addEventListener("click", () => {
+            updatePresence(auth.currentUser,id);
+            showChatModal(id,data.question);
+          });
+          discussionTopicsListEl.appendChild(li);
         });
+      });
+    };
 
-        leaveRoomBtn.addEventListener('click', () => {
-            if (auth.currentUser) {
-                updatePresence(auth.currentUser, null);
-            }
-            hideChatModal();
+    const startListeningToMessages = (topicId) => {
+      if (unsubscribeMessages) unsubscribeMessages();
+      const ref = collection(db, `artifacts/${appId}/public/data/discussion_topics/${topicId}/messages`);
+      unsubscribeMessages=onSnapshot(query(ref),(snap)=>{
+        chatMessageList.innerHTML="";
+        snap.forEach(d=>{
+          const data=d.data();
+          const mine=data.senderId===auth.currentUser.uid;
+          const div=document.createElement("div");
+          div.className=`max-w-[80%] p-2 rounded-lg ${mine?"bg-blue-600 text-white self-end":"bg-gray-200 text-gray-800 self-start"}`;
+          div.innerHTML=`<p class="font-bold text-xs mb-1">${mine?"You":"User: "+data.senderId}</p><p>${data.text}</p>`;
+          chatMessageList.appendChild(div);
         });
-
-        sendMessageForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (message && currentRoomId) {
-                // Add the message to the specific discussion topic's sub-collection
-                const messagesColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics/${currentRoomId}/messages`);
-                await addDoc(messagesColRef, {
-                    text: message,
-                    senderId: auth.currentUser.uid,
-                    senderType: 'admin',
-                    timestamp: Timestamp.now()
-                });
-                messageInput.value = '';
-                chatMessageList.scrollTop = chatMessageList.scrollHeight; // Auto-scroll to bottom
-            }
-        });
-
-        // --- Real-time Listeners ---
-        const startListeningToOnlineUsers = () => {
-            // Unsubscribe from previous listener if it exists
-            if (unsubscribePresence) unsubscribePresence();
-            
-            // Listen to all users in the 'presence_users' collection
-            const presenceColRef = collection(db, `artifacts/${appId}/public/data/presence_users`);
-            const q = query(presenceColRef);
-            unsubscribePresence = onSnapshot(q, (snapshot) => {
-                const onlineUsers = [];
-                const roomCounts = {};
-                const cutoff = Timestamp.now().seconds - 60; // 60 seconds cutoff for "online"
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    if (data.last_active && data.last_active.seconds > cutoff) {
-                        const displayId = data.userId === auth.currentUser.uid ? 'You (Admin)' : `User ID: ${data.userId}`;
-                        onlineUsers.push(displayId);
-                        if (data.current_room) {
-                            roomCounts[data.current_room] = (roomCounts[data.current_room] || 0) + 1;
-                        }
-                    }
-                });
-                onlineUsersEl.textContent = onlineUsers.length;
-                onlineUsersListEl.innerHTML = '';
-                onlineUsers.forEach(id => {
-                    const li = document.createElement('li');
-                    li.textContent = id;
-                    li.classList.add('online-list-item', 'text-gray-700');
-                    onlineUsersListEl.appendChild(li);
-                });
-                updateDiscussionTopicCounts(roomCounts);
-            });
-        };
-
-        const updateDiscussionTopicCounts = (counts) => {
-            const topics = discussionTopicsListEl.querySelectorAll('.topic-item');
-            topics.forEach(topicEl => {
-                const topicId = topicEl.dataset.id;
-                const count = counts[topicId] || 0;
-                const countEl = topicEl.querySelector('.user-count');
-                if (countEl) {
-                    countEl.textContent = `${count} User${count !== 1 ? 's' : ''}`;
-                }
-            });
-        };
-
-        const startListeningToDiscussions = () => {
-            const topicsColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
-            // Listen for new discussion topics in real-time
-            onSnapshot(topicsColRef, (snapshot) => {
-                discussionTopicsListEl.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const topicId = doc.id;
-                    const li = document.createElement('li');
-                    li.dataset.id = topicId;
-                    li.classList.add('bg-white', 'p-4', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200', 'flex', 'flex-col', 'gap-2', 'topic-item');
-
-                    li.innerHTML = `
-                        <p class="font-semibold text-gray-800">${data.question}</p>
-                        <div class="flex items-center justify-between text-sm text-gray-500">
-                            <span class="user-count">0 Users</span>
-                            <button class="join-btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Join</button>
-                        </div>
-                    `;
-
-                    li.querySelector('.join-btn').addEventListener('click', () => {
-                        updatePresence(auth.currentUser, topicId);
-                        showChatModal(topicId, data.question);
-                    });
-
-                    discussionTopicsListEl.appendChild(li);
-                });
-            });
-        };
-
-        const startListeningToMessages = (topicId) => {
-            if (unsubscribeMessages) unsubscribeMessages();
-            // Listen for new messages in a specific discussion topic
-            const messagesColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics/${topicId}/messages`);
-            const q = query(messagesColRef);
-            unsubscribeMessages = onSnapshot(q, (snapshot) => {
-                chatMessageList.innerHTML = '';
-                snapshot.forEach(doc => {
-                    const data = doc.data();
-                    const isMyMessage = data.senderId === auth.currentUser.uid;
-                    const messageEl = document.createElement('div');
-                    messageEl.classList.add('message-bubble', isMyMessage ? 'admin-bubble' : 'user-bubble');
-
-                    const senderName = isMyMessage ? 'You' : `User ID: ${data.senderId}`;
-                    messageEl.innerHTML = `<p class="font-bold mb-1">${senderName}</p><p>${data.text}</p>`;
-
-                    chatMessageList.appendChild(messageEl);
-                });
-                chatMessageList.scrollTop = chatMessageList.scrollHeight;
-            });
-        };
-    </script>
+        chatMessageList.scrollTop=chatMessageList.scrollHeight;
+      });
+    };
+  </script>
 </body>
 </html>
