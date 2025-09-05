@@ -8,6 +8,7 @@
     <style>
         body {
             font-family: 'Inter', sans-serif;
+            transition: all 0.3s ease-in-out;
         }
         .online-list-item {
             display: flex;
@@ -32,6 +33,7 @@
             background-color: rgba(0, 0, 0, 0.6);
             justify-content: center;
             align-items: center;
+            backdrop-filter: blur(5px);
         }
         .modal-content {
             background-color: #fefefe;
@@ -52,6 +54,35 @@
                 opacity: 1;
             }
         }
+        .chat-message-list {
+            height: 400px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .message-bubble {
+            padding: 8px 12px;
+            border-radius: 12px;
+            max-width: 80%;
+            word-wrap: break-word;
+        }
+        .admin-bubble {
+            background-color: #3B82F6;
+            color: white;
+            align-self: flex-end;
+            border-bottom-right-radius: 4px;
+        }
+        .user-bubble {
+            background-color: #E5E7EB;
+            color: #374151;
+            align-self: flex-start;
+            border-bottom-left-radius: 4px;
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
@@ -69,6 +100,22 @@
         </div>
     </div>
 
+    <!-- Chat Modal -->
+    <div id="chat-modal" class="modal">
+        <div class="modal-content !max-w-xl flex flex-col h-[80%]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="chat-modal-title" class="text-xl font-bold text-gray-800">Discussion Room</h3>
+                <button id="leave-room-btn" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
+            </div>
+            <p id="chat-topic-question" class="text-gray-600 italic mb-4"></p>
+            <div id="chat-message-list" class="chat-message-list flex-grow"></div>
+            <form id="send-message-form" class="flex gap-2 mt-4">
+                <input type="text" id="message-input" placeholder="Type a message..." class="flex-grow rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
+                <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Send</button>
+            </form>
+        </div>
+    </div>
+
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">Admin Dashboard</h1>
@@ -80,7 +127,7 @@
 
             <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
                 <h2 class="text-lg font-semibold mb-4">Live Statistics</h2>
-                <p class="mb-4 text-gray-600 text-sm">Online user data updates every 10 seconds.</p>
+                <p class="mb-4 text-gray-600 text-sm">Online user data updates every 10 seconds. User IDs are displayed to help with moderation.</p>
                 <div class="space-y-2">
                     <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold text-lg">...</span></p>
                     <ul id="online-users-list" class="space-y-1"></ul>
@@ -95,22 +142,14 @@
                         <label for="discussion-question-input" class="block text-sm font-medium text-gray-700">Discussion Question</label>
                         <textarea id="discussion-question-input" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"></textarea>
                     </div>
-                    <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Post Discussion</button>
+                    <button type="submit" id="post-discussion-btn" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Post Discussion</button>
                 </form>
             </section>
 
             <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
-                <p class="mb-4 text-gray-600">Generate quizzes from uploaded documents or try the free trial quiz.</p>
-                <div class="flex gap-4">
-                    <button id="upload-quiz-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Upload & Generate Quiz</button>
-                    <button id="free-quiz-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">Free Trial Quiz</button>
-                </div>
-            </section>
-            
-            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4">Analytics</h2>
-                <p class="text-gray-600">📊 Stats, reports, and usage charts will appear here.</p>
+                <h2 class="text-lg font-semibold mb-4">Active Discussion Topics</h2>
+                <p class="mb-4 text-gray-600">Click "Join" to enter a discussion room and moderate the chat.</p>
+                <ul id="discussion-topics-list" class="space-y-4"></ul>
             </section>
         </div>
     </div>
@@ -118,8 +157,8 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, Timestamp, addDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        
         // Global variable checks
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
@@ -132,22 +171,56 @@
         const createDiscussionForm = document.getElementById("create-discussion-form");
         const discussionQuestionInput = document.getElementById("discussion-question-input");
         const statusMessageEl = document.getElementById("status-message");
-        const uploadQuizBtn = document.getElementById("upload-quiz-btn");
-        const freeQuizBtn = document.getElementById("free-quiz-btn");
+        const discussionTopicsListEl = document.getElementById("discussion-topics-list");
+        const postDiscussionBtn = document.getElementById("post-discussion-btn");
 
         // Custom Modal Elements
         const modal = document.getElementById("custom-modal");
         const modalTitle = document.getElementById("modal-title");
         const modalMessage = document.getElementById("modal-message");
 
+        // Chat Modal Elements
+        const chatModal = document.getElementById("chat-modal");
+        const chatModalTitle = document.getElementById("chat-modal-title");
+        const chatTopicQuestion = document.getElementById("chat-topic-question");
+        const leaveRoomBtn = document.getElementById("leave-room-btn");
+        const chatMessageList = document.getElementById("chat-message-list");
+        const sendMessageForm = document.getElementById("send-message-form");
+        const messageInput = document.getElementById("message-input");
+
+        // --- State Variables ---
+        let currentRoomId = null;
+        let unsubscribeMessages = null;
+        let unsubscribePresence = null;
+        let presenceIntervalId = null;
+
+        // --- Modal Functions ---
         function showModal(title, message) {
             modalTitle.textContent = title;
             modalMessage.textContent = message;
             modal.style.display = 'flex';
         }
-        
+
         function hideModal() {
             modal.style.display = 'none';
+        }
+
+        function showChatModal(topicId, question) {
+            currentRoomId = topicId;
+            chatModalTitle.textContent = "Discussion Room";
+            chatTopicQuestion.textContent = question;
+            chatModal.style.display = 'flex';
+            startListeningToMessages(topicId);
+        }
+
+        function hideChatModal() {
+            currentRoomId = null;
+            chatModal.style.display = 'none';
+            chatMessageList.innerHTML = '';
+            if (unsubscribeMessages) {
+                unsubscribeMessages();
+                unsubscribeMessages = null;
+            }
         }
 
         // --- Firebase Initialization and Auth Logic ---
@@ -155,52 +228,36 @@
         const db = getFirestore(app);
         const auth = getAuth(app);
 
-        let presenceIntervalId = null;
+        // Function to update user presence in Firestore
+        const updatePresence = (user, roomId = null) => {
+            const presenceDocRef = doc(db, `artifacts/${appId}/public/data/presence_users/${user.uid}`);
+            setDoc(presenceDocRef, {
+                userId: user.uid,
+                last_active: Timestamp.now(),
+                type: 'admin',
+                current_room: roomId
+            }, { merge: true }).catch(error => console.error("Failed to update presence:", error));
+        };
 
+        // Main auth state listener
         onAuthStateChanged(auth, async (user) => {
             if (user) {
                 statusMessageEl.textContent = `Welcome, Admin! 🎉`;
                 
                 // Track user presence
-                const presenceDocRef = doc(db, `artifacts/${appId}/public/data/presence_users/${user.uid}`);
-                const updatePresence = () => {
-                    setDoc(presenceDocRef, {
-                        userId: user.uid,
-                        last_active: Timestamp.now(),
-                        type: 'admin'
-                    }, { merge: true }).catch(error => console.error("Failed to update presence:", error));
-                };
-                updatePresence();
+                updatePresence(user, currentRoomId);
                 if (presenceIntervalId) clearInterval(presenceIntervalId);
-                presenceIntervalId = setInterval(updatePresence, 10000); // Update every 10 seconds
+                presenceIntervalId = setInterval(() => updatePresence(user, currentRoomId), 10000); // Update every 10 seconds
 
-                // Listen for live users
-                const presenceColRef = collection(db, `artifacts/${appId}/public/data/presence_users`);
-                const q = query(presenceColRef);
-                onSnapshot(q, (snapshot) => {
-                    const onlineUsers = [];
-                    const cutoff = Timestamp.now().seconds - 60; // 60 seconds cutoff for "online"
-                    snapshot.forEach(doc => {
-                        const data = doc.data();
-                        if (data.last_active && data.last_active.seconds > cutoff) {
-                             // Use a more readable ID for display
-                             const displayId = data.userId === user.uid ? 'You (Admin)' : `User ID: ${data.userId.substring(0, 8)}`;
-                             onlineUsers.push(displayId);
-                        }
-                    });
-                    onlineUsersEl.textContent = onlineUsers.length;
-                    onlineUsersListEl.innerHTML = '';
-                    onlineUsers.forEach(id => {
-                        const li = document.createElement('li');
-                        li.textContent = id;
-                        li.classList.add('online-list-item', 'text-gray-700');
-                        onlineUsersListEl.appendChild(li);
-                    });
-                });
+                startListeningToDiscussions();
+                startListeningToOnlineUsers();
 
             } else {
                 statusMessageEl.textContent = `Signing you in...`;
                 if (presenceIntervalId) clearInterval(presenceIntervalId);
+                if (unsubscribePresence) unsubscribePresence();
+                if (unsubscribeMessages) unsubscribeMessages();
+
                 try {
                     if (initialAuthToken) {
                         await signInWithCustomToken(auth, initialAuthToken);
@@ -214,7 +271,7 @@
             }
         });
 
-        // --- Logout Logic ---
+        // --- Event Listeners ---
         logoutBtn.addEventListener("click", async () => {
             try {
                 await signOut(auth);
@@ -225,33 +282,150 @@
             }
         });
 
-        // --- Admin Actions ---
         createDiscussionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            postDiscussionBtn.disabled = true;
+            postDiscussionBtn.textContent = 'Posting...';
             const question = discussionQuestionInput.value.trim();
             if (!question) {
                 showModal('Invalid Input', 'Discussion question cannot be empty.');
+                postDiscussionBtn.disabled = false;
+                postDiscussionBtn.textContent = 'Post Discussion';
                 return;
             }
 
             try {
-                const topicDocRef = doc(db, `artifacts/${appId}/public/data/discussion_topics/current`);
-                await setDoc(topicDocRef, { question: question, posted_at: Timestamp.now() });
+                const topicsColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
+                await addDoc(topicsColRef, {
+                    question: question,
+                    posted_at: Timestamp.now()
+                });
                 showModal('Success', 'New discussion topic posted successfully!');
                 discussionQuestionInput.value = '';
             } catch (error) {
                 console.error("Failed to post discussion:", error);
-                showModal('Error', 'An error occurred while posting the discussion. Please try again.');
+                showModal('Error', `An error occurred: ${error.message}. Check the console for details.`);
+            } finally {
+                postDiscussionBtn.disabled = false;
+                postDiscussionBtn.textContent = 'Post Discussion';
             }
         });
 
-        uploadQuizBtn.addEventListener('click', () => {
-             showModal('Upload & Generate Quiz', 'This feature is available on the user dashboard. Please use the "Generate Quiz" button there.');
+        leaveRoomBtn.addEventListener('click', () => {
+            if (auth.currentUser) {
+                updatePresence(auth.currentUser, null);
+            }
+            hideChatModal();
         });
 
-        freeQuizBtn.addEventListener('click', () => {
-             showModal('Free Trial Quiz', 'This feature is not yet available. Please try the quiz generator on the user dashboard!');
+        sendMessageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (message && currentRoomId) {
+                const messagesColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics/${currentRoomId}/messages`);
+                await addDoc(messagesColRef, {
+                    text: message,
+                    senderId: auth.currentUser.uid,
+                    senderType: 'admin',
+                    timestamp: Timestamp.now()
+                });
+                messageInput.value = '';
+                chatMessageList.scrollTop = chatMessageList.scrollHeight; // Auto-scroll to bottom
+            }
         });
+
+        // --- Real-time Listeners ---
+        const startListeningToOnlineUsers = () => {
+            if (unsubscribePresence) unsubscribePresence();
+            const presenceColRef = collection(db, `artifacts/${appId}/public/data/presence_users`);
+            const q = query(presenceColRef);
+            unsubscribePresence = onSnapshot(q, (snapshot) => {
+                const onlineUsers = [];
+                const roomCounts = {};
+                const cutoff = Timestamp.now().seconds - 60; // 60 seconds cutoff for "online"
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    if (data.last_active && data.last_active.seconds > cutoff) {
+                        const displayId = data.userId === auth.currentUser.uid ? 'You (Admin)' : `User ID: ${data.userId.substring(0, 8)}`;
+                        onlineUsers.push(displayId);
+                        if (data.current_room) {
+                            roomCounts[data.current_room] = (roomCounts[data.current_room] || 0) + 1;
+                        }
+                    }
+                });
+                onlineUsersEl.textContent = onlineUsers.length;
+                onlineUsersListEl.innerHTML = '';
+                onlineUsers.forEach(id => {
+                    const li = document.createElement('li');
+                    li.textContent = id;
+                    li.classList.add('online-list-item', 'text-gray-700');
+                    onlineUsersListEl.appendChild(li);
+                });
+                updateDiscussionTopicCounts(roomCounts);
+            });
+        };
+
+        const updateDiscussionTopicCounts = (counts) => {
+            const topics = discussionTopicsListEl.querySelectorAll('.topic-item');
+            topics.forEach(topicEl => {
+                const topicId = topicEl.dataset.id;
+                const count = counts[topicId] || 0;
+                const countEl = topicEl.querySelector('.user-count');
+                if (countEl) {
+                    countEl.textContent = `${count} User${count !== 1 ? 's' : ''}`;
+                }
+            });
+        };
+
+        const startListeningToDiscussions = () => {
+            const topicsColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics`);
+            onSnapshot(topicsColRef, (snapshot) => {
+                discussionTopicsListEl.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const topicId = doc.id;
+                    const li = document.createElement('li');
+                    li.dataset.id = topicId;
+                    li.classList.add('bg-white', 'p-4', 'rounded-lg', 'shadow-sm', 'border', 'border-gray-200', 'flex', 'flex-col', 'gap-2', 'topic-item');
+
+                    li.innerHTML = `
+                        <p class="font-semibold text-gray-800">${data.question}</p>
+                        <div class="flex items-center justify-between text-sm text-gray-500">
+                            <span class="user-count">0 Users</span>
+                            <button class="join-btn bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Join</button>
+                        </div>
+                    `;
+
+                    li.querySelector('.join-btn').addEventListener('click', () => {
+                        updatePresence(auth.currentUser, topicId);
+                        showChatModal(topicId, data.question);
+                    });
+
+                    discussionTopicsListEl.appendChild(li);
+                });
+            });
+        };
+
+        const startListeningToMessages = (topicId) => {
+            if (unsubscribeMessages) unsubscribeMessages();
+            const messagesColRef = collection(db, `artifacts/${appId}/public/data/discussion_topics/${topicId}/messages`);
+            const q = query(messagesColRef);
+            unsubscribeMessages = onSnapshot(q, (snapshot) => {
+                chatMessageList.innerHTML = '';
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    const isMyMessage = data.senderId === auth.currentUser.uid;
+                    const messageEl = document.createElement('div');
+                    messageEl.classList.add('message-bubble', isMyMessage ? 'admin-bubble' : 'user-bubble');
+
+                    const senderName = isMyMessage ? 'You' : `User ID: ${data.senderId.substring(0, 8)}`;
+                    messageEl.innerHTML = `<p class="font-bold mb-1">${senderName}</p><p>${data.text}</p>`;
+
+                    chatMessageList.appendChild(messageEl);
+                });
+                chatMessageList.scrollTop = chatMessageList.scrollHeight;
+            });
+        };
     </script>
 </body>
 </html>
