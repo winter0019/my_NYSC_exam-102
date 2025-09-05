@@ -67,17 +67,17 @@
   </main>
 
   <script>
-    // --- Upload Document & Generate Quiz ---
     const uploadForm = document.getElementById('upload-form');
     const quizSection = document.getElementById('quiz-section');
     const quizContainer = document.getElementById('quiz-container');
     const generateBtn = document.getElementById('generate-btn');
+    let currentQuestions = []; // store generated quiz
 
+    // --- Upload Document & Generate Quiz ---
     uploadForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(uploadForm);
 
-      // Show loading state
       generateBtn.disabled = true;
       generateBtn.textContent = "Generating...";
 
@@ -99,18 +99,20 @@
           return;
         }
 
-        // Show quiz
+        currentQuestions = data.questions;
+
         quizSection.classList.remove('hidden');
         quizContainer.innerHTML = '';
 
-        data.questions.forEach((q, index) => {
+        currentQuestions.forEach((q, index) => {
           const div = document.createElement('div');
           div.className = 'border rounded p-3';
           div.innerHTML = `
             <p class="font-semibold">${index + 1}. ${q.question}</p>
             ${q.options.map(opt => `
-              <label class="block">
-                <input type="radio" name="q${index}" value="${opt}"> ${opt}
+              <label class="block cursor-pointer">
+                <input type="radio" name="q${index}" value="${opt}">
+                ${opt}
               </label>
             `).join('')}
           `;
@@ -121,7 +123,6 @@
         console.error(err);
         alert('An error occurred: ' + err.message);
       } finally {
-        // Reset button state
         generateBtn.disabled = false;
         generateBtn.textContent = "Generate Quiz";
       }
@@ -129,7 +130,44 @@
 
     // --- Submit Quiz ---
     document.getElementById('submit-quiz').addEventListener('click', () => {
-      alert('Quiz submitted! (Scoring logic can be added here)');
+      let score = 0;
+      quizContainer.querySelectorAll('div').forEach((div, index) => {
+        const selected = div.querySelector(`input[name="q${index}"]:checked`);
+        const userAnswer = selected ? selected.value.trim() : null;
+        const correctAnswer = currentQuestions[index].answer.trim();
+
+        // Reset old highlights
+        div.querySelectorAll('label').forEach(label => {
+          label.classList.remove('bg-green-100', 'bg-red-100');
+        });
+
+        if (userAnswer === correctAnswer) {
+          score++;
+          div.querySelectorAll('label').forEach(label => {
+            if (label.textContent.includes(correctAnswer)) {
+              label.classList.add('bg-green-100');
+            }
+          });
+        } else {
+          if (userAnswer) {
+            div.querySelectorAll('label').forEach(label => {
+              if (label.textContent.includes(userAnswer)) {
+                label.classList.add('bg-red-100');
+              }
+            });
+          }
+          div.querySelectorAll('label').forEach(label => {
+            if (label.textContent.includes(correctAnswer)) {
+              label.classList.add('bg-green-100');
+            }
+          });
+        }
+      });
+
+      const resultDiv = document.createElement('div');
+      resultDiv.className = 'mt-4 p-3 border-t text-lg font-semibold';
+      resultDiv.textContent = `Your Score: ${score} / ${currentQuestions.length}`;
+      quizContainer.appendChild(resultDiv);
     });
 
     // --- Discussion Room (Firestore) ---
