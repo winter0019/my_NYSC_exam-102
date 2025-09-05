@@ -264,50 +264,57 @@ def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
       ]
     }}
     """
+    model = genai.GenerativeModel("gemini-1.5-flash")
+    response = model.generate_content(
+        prompt,
+        safety_settings={
+            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
+            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
+        }
+    )
+
+    raw = (response.text or "").strip()
+
     try:
-        response = genai.GenerativeModel("gemini-pro").generate_content(prompt)
-        raw = (response.text or "").strip()
-        
         # Try parsing as strict JSON
+        return quiz_to_uniform_schema(json.loads(raw))
+    except json.JSONDecodeError as e:
+        logger.warning(f"Failed to parse strict JSON. Attempting fallback methods. Error: {e}")
+        
+    # If that fails, try to extract a JSON block
+    jb = _extract_first_json_block(raw)
+    if jb:
         try:
-            return quiz_to_uniform_schema(json.loads(raw))
-        except Exception:
-            pass
-
-        # If that fails, try to extract a JSON block
-        jb = _extract_first_json_block(raw)
-        if jb:
-            try:
-                return quiz_to_uniform_schema(json.loads(jb))
-            except Exception:
-                pass
-        
-        # As a final fallback, try regex parsing
-        questions = []
-        blocks = re.split(r"\n\s*\n", raw)
-        for b in blocks:
-            lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
-            if len(lines) >= 5:
-                q = lines[0]
-                opts = []
-                for ln in lines[1:5]:
-                    m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
-                    opts.append(m.group(1) if m else ln)
-                while len(opts) < 4:
-                    opts.append("N/A")
-                questions.append({"question": q, "options": opts[:4], "answer": ""})
-        
-        if questions:
-            return {"questions": questions[:5]}
-
-        # If all parsing fails, log and return empty quiz
-        logger.error(f"Gemini parsing failed after all attempts. Raw output:\n{raw}", exc_info=True)
-        return {"questions": []}
+            logger.info("Successfully extracted a JSON block. Parsing...")
+            return quiz_to_uniform_schema(json.loads(jb))
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse extracted JSON block. Error: {e}")
     
-    except Exception as e:
-        logger.error(f"Gemini API call failed: {e}", exc_info=True)
-        return {"questions": []}
+    # As a final fallback, try regex parsing
+    logger.warning("All JSON parsing failed. Falling back to regex.")
+    questions = []
+    blocks = re.split(r"\n\s*\n", raw)
+    for b in blocks:
+        lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
+        if len(lines) >= 5:
+            q = lines[0]
+            opts = []
+            for ln in lines[1:5]:
+                m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
+                opts.append(m.group(1) if m else ln)
+            while len(opts) < 4:
+                opts.append("N/A")
+            questions.append({"question": q, "options": opts[:4], "answer": ""})
+    
+    if questions:
+        logger.info(f"Successfully parsed {len(questions)} questions via regex.")
+        return {"questions": questions[:5]}
 
+    # If all parsing fails, log and return empty quiz
+    logger.error(f"Quiz generation failed after all parsing attempts. Raw output:\n{raw}", exc_info=True)
+    return {"questions": []}
 
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
     try:
@@ -607,3 +614,16 @@ def online_users():
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
+A video about a Flask tutorial might help you understand the framework better for future updates.
+
+
+<br>
+
+<br>
+---
+<br>
+<br>
+[Learn Flask for Python](https://www.youtube.com/watch?v=Z1RJmh_OqeA)
+This video is a tutorial on how to set up a basic Flask application, which could help with a better understanding of the code's structure.
+http://googleusercontent.com/youtube_content/0
