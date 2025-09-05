@@ -356,6 +356,7 @@ def login():
             return jsonify({"ok": True, "redirect": url_for("dashboard")})
     
     return render_template("login.html")
+
 @app.route("/logout", methods=["POST"])
 def logout():
     # Remove the user's presence from Firestore on logout.
@@ -649,4 +650,5 @@ def delete_topic(topic_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
