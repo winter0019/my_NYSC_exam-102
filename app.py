@@ -348,10 +348,14 @@ def login():
         # In a real app, you would validate the password. For this demo, email check is sufficient.
         session["user_email"] = email
         role = "admin" if email == ADMIN_USER else "user"
-        return jsonify({"ok": True, "role": role})
+        
+        # New redirect logic based on user role
+        if role == "admin":
+            return jsonify({"ok": True, "redirect": url_for("admin_dashboard")})
+        else:
+            return jsonify({"ok": True, "redirect": url_for("dashboard")})
     
     return render_template("login.html")
-
 @app.route("/logout", methods=["POST"])
 def logout():
     # Remove the user's presence from Firestore on logout.
@@ -645,3 +649,4 @@ def delete_topic(topic_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
