@@ -615,18 +615,3 @@ def online_users():
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
-
-A video about a Flask tutorial might help you understand the framework better for future updates.
-
-
-<br>
-
-<br>
----
-<br>
-<br>
-[Learn Flask for Python](https://www.youtube.com/watch?v=Z1RJmh_OqeA)
-This video is a tutorial on how to set up a basic Flask application, which could help with a better understanding of the code's structure.
-http://googleusercontent.com/youtube_content/0
-
-
