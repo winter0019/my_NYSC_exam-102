@@ -1,606 +1,673 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NYSC Exam Prep - User Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 100;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
-            justify-content: center;
-            align-items: center;
-        }
-        .modal-content {
-            background-color: #fefefe;
-            padding: 24px;
-            border-radius: 12px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-            width: 90%;
-            max-width: 500px;
-            animation: slideIn 0.3s ease-out;
-        }
-        @keyframes slideIn {
-            from {
-                transform: translateY(-20px);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-        .loading-spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #3498db;
-            border-radius: 50%;
-            width: 32px;
-            height: 32px;
-            animation: spin 1s linear infinite;
-        }
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-        .selected-option {
-            background-color: #f0f4f8;
-            border-color: #2563eb;
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>NYSC Exam Dashboard</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #007bff;
+      --secondary: #0056b3;
+      --accent: #28a745;
+      --light: #f8f9fa;
+      --dark: #343a40;
+    }
+    
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+      color: #333;
+      line-height: 1.6;
+      margin: 0;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    
+    .container { 
+      max-width: 1000px; 
+      margin: auto; 
+      background: #fff; 
+      padding: 30px; 
+      border-radius: 15px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      padding-bottom: 20px;
+      border-bottom: 2px solid #eee;
+    }
+    
+    h2, h3 { 
+      color: var(--dark);
+      margin-bottom: 15px;
+    }
+    
+    h2 {
+      color: var(--primary);
+      font-size: 2em;
+    }
+    
+    .card { 
+      background: var(--light); 
+      padding: 20px; 
+      margin: 20px 0; 
+      border: 1px solid #ddd; 
+      border-radius: 10px;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    
+    .card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .btn { 
+      padding: 12px 20px; 
+      border-radius: 6px; 
+      background: var(--primary); 
+      color: #fff; 
+      text-decoration: none; 
+      border: none;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
+    .btn:hover { 
+      background: var(--secondary);
+      transform: translateY(-1px);
+    }
+    
+    .btn-accent {
+      background: var(--accent);
+    }
+    
+    .btn-accent:hover {
+      background: #218838;
+    }
+    
+    .logout { 
+      background: #dc3545;
+    }
+    
+    .logout:hover {
+      background: #c82333;
+    }
+    
+    .quiz-box { 
+      background: #eef; 
+      padding: 20px; 
+      border-radius: 8px; 
+      margin-top: 20px;
+      border-left: 4px solid var(--primary);
+    }
+    
+    .form-group {
+      margin-bottom: 15px;
+    }
+    
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 600;
+      color: var(--dark);
+    }
+    
+    select, input[type="text"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e9ecef;
+      border-radius: 5px;
+      font-size: 14px;
+    }
+    
+    select:focus, input[type="text"]:focus {
+      outline: none;
+      border-color: var(--primary);
+    }
+    
+    .activity-list {
+      list-style: none;
+      padding: 0;
+    }
+    
+    .activity-item {
+      padding: 10px 15px;
+      margin: 8px 0;
+      background: white;
+      border-radius: 5px;
+      border-left: 3px solid var(--primary);
+    }
+    
+    .options-list {
+      list-style: none;
+      padding: 0;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 15px;
+    }
+    
+    .option-item {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+    
+    .option-item:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+    }
+    
+    .option-item a {
+      text-decoration: none;
+      color: var(--primary);
+      font-weight: 600;
+      display: block;
+    }
+    
+    .option-item:hover a {
+      color: var(--secondary);
+    }
+    
+    .loading {
+      display: none;
+      text-align: center;
+      padding: 20px;
+    }
+    
+    .spinner {
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid var(--primary);
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+      margin: 0 auto 10px;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    .error-message {
+      background: #ffebee;
+      color: #dc3545;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      border-left: 4px solid #dc3545;
+    }
+    
+    .success-message {
+      background: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 5px;
+      margin: 10px 0;
+      border-left: 4px solid #28a745;
+    }
+    
+    /* Quiz specific styles */
+    .quiz-container {
+      margin-top: 20px;
+    }
+    
+    .question {
+      margin-bottom: 25px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #eee;
+    }
+    
+    .question-text {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 15px;
+      color: #333;
+    }
+    
+    .options {
+      margin-left: 20px;
+    }
+    
+    .option {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      border: 1px solid #e0e0e0;
+      transition: all 0.3s ease;
+      cursor: pointer;
+    }
+    
+    .option:hover {
+      background-color: #f5f7ff;
+      border-color: var(--primary);
+    }
+    
+    .option input {
+      margin-right: 15px;
+      margin-top: 3px;
+    }
+    
+    .option-label {
+      font-weight: 500;
+      margin-right: 10px;
+      min-width: 30px;
+    }
+    
+    .score-container {
+      text-align: center;
+      padding: 20px;
+      font-size: 18px;
+      font-weight: 600;
+      color: #333;
+      margin: 20px 0;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    
+    .correct {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+    }
+    
+    .incorrect {
+      background-color: #f8d7da;
+      border-color: #f5c6cb;
+    }
+    
+    .result-feedback {
+      margin-top: 10px;
+      font-size: 14px;
+      padding: 8px 12px;
+      border-radius: 4px;
+      display: none;
+    }
+    
+    .correct-answer {
+      background-color: #d4edda;
+      color: #155724;
+    }
+    
+    .incorrect-answer {
+      background-color: #f8d7da;
+      color: #721c24;
+    }
+    
+    .quiz-actions {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 20px;
+    }
+  </style>
 </head>
-<body class="bg-gray-50 min-h-screen p-6">
-
-    <!-- Custom Modal -->
-    <div id="custom-modal" class="modal">
-        <div class="modal-content">
-            <div class="flex justify-between items-center mb-4">
-                <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
-                <button onclick="hideModal()" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
-            </div>
-            <div id="modal-message-container">
-                <p id="modal-message" class="text-gray-700 mb-4"></p>
-                <div id="modal-spinner" class="hidden loading-spinner mx-auto my-4"></div>
-            </div>
-            <div id="modal-actions" class="flex justify-end hidden">
-                <button onclick="hideModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none">OK</button>
-            </div>
-        </div>
+<body>
+  <div class="container">
+    <div class="header">
+      <h2><i class="fas fa-graduation-cap"></i> NYSC Exam Dashboard</h2>
+      <a class="btn logout" href="{{ url_for('logout') }}">
+        <i class="fas fa-sign-out-alt"></i> Logout
+      </a>
     </div>
     
-    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
-        <div class="flex justify-between items-center mb-6">
-            <h1 class="text-2xl font-bold text-gray-800">User Dashboard</h1>
-            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600 transition-colors duration-200">Logout</button>
-        </div>
-
-        <p id="status" class="mb-4 text-gray-600">Welcome to NYSC Exam Prep! 🎓</p>
-        <p id="user-id-display" class="mb-4 text-xs text-gray-500"></p>
-
-        <div id="content" class="space-y-6">
-            <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-4 text-gray-800">Exam Tools</h2>
-                <p class="mb-4 text-gray-700">Choose how you want to practice:</p>
-                <div class="flex flex-col sm:flex-row gap-4">
-                    <button id="quiz-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Generate Quiz</button>
-                    <button id="discussion-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">Discussion Room</button>
-                </div>
-            </section>
-
-            <!-- Quiz Generator Section -->
-            <section id="quiz-generator-section" class="hidden bg-gray-100 p-6 rounded-lg shadow-inner">
-                <h2 class="text-lg font-semibold mb-2 text-gray-800">Generate Quiz from Text or Image</h2>
-                <p class="mb-2 text-gray-600 text-sm">Upload an image of your study materials, or paste text below. (For PDF/DOCX, please copy and paste text.)</p>
-                
-                <div class="mb-4">
-                    <label for="image-upload" class="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-2 rounded-lg cursor-pointer transition-colors duration-200">Upload Image</label>
-                    <input type="file" id="image-upload" accept="image/*" class="hidden">
-                    <span id="file-name" class="ml-3 text-gray-500 text-sm">No file selected</span>
-                </div>
-                
-                <div id="image-preview-container" class="mt-4 hidden mb-4">
-                    <img id="image-preview" src="#" alt="Image Preview" class="max-w-full h-auto rounded-lg shadow-md border border-gray-300">
-                </div>
-
-                <textarea id="source-text" class="w-full h-40 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none" placeholder="Or, paste your study material, a chapter summary, or notes here..."></textarea>
-                <div class="flex justify-end mt-4">
-                    <button id="generate-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Generate Quiz</button>
-                </div>
-
-                <div id="quiz-flow-container" class="mt-6 hidden">
-                    <!-- This div will hold the single question or the final results -->
-                    <div id="quiz-container" class="space-y-6">
-                        <!-- Quiz question and options will be inserted here -->
-                    </div>
-                    <div id="quiz-navigation" class="flex justify-end mt-4">
-                        <button id="next-btn" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Next</button>
-                    </div>
-                    <div id="quiz-results" class="hidden">
-                        <!-- Final score and review will be displayed here -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- Discussion Room Section -->
-            <section id="discussion-room-section" class="bg-gray-100 p-6 rounded-lg shadow-inner">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 gap-2">
-                    <h2 class="text-lg font-semibold text-gray-800">Discussion Room</h2>
-                    <button id="summary-btn" class="bg-purple-600 text-white px-3 py-1 rounded-lg hover:bg-purple-700 transition-colors duration-200 text-sm">Get Final Summary</button>
-                </div>
-                
-                <div class="mb-4">
-                    <p class="font-bold text-gray-800">Current Topic:</p>
-                    <p id="discussion-question" class="mt-1 text-gray-700 italic">Loading...</p>
-                </div>
-                
-                <div id="discussion-messages" class="h-64 overflow-y-auto bg-white p-4 rounded-lg shadow-sm mb-4 space-y-2">
-                    <!-- Messages will be rendered here -->
-                    <p class="text-center text-gray-500">Connecting to discussion room...</p>
-                </div>
-
-                <div class="space-y-2">
-                    <p class="text-sm font-medium text-gray-700">Join the discussion:</p>
-                    <form id="discussion-form" class="flex gap-2">
-                        <input type="text" id="message-input" placeholder="Type your message..." required class="flex-grow px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
-                        <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Send</button>
-                    </form>
-                </div>
-            </section>
-        </div>
+    <div class="card">
+      <h3><i class="fas fa-user"></i> User Information</h3>
+      <p>Welcome, <strong>{{ email }}</strong></p>
+      <p><strong>Grade Level:</strong> {{ session.get('user_grade', 'GL10') }}</p>
+      <p><strong>IP Address:</strong> {{ request.remote_addr }}</p>
+      <p><strong>Status:</strong> <span style="color: var(--accent);">Active</span></p>
     </div>
-    
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, getDoc, addDoc, onSnapshot, collection, query, orderBy, setLogLevel, setDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        // Global variable checks
-        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
-        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    <div class="card">
+      <h3><i class="fas fa-file-upload"></i> Generate Quiz from Documents</h3>
+      <form id="quizForm" enctype="multipart/form-data">
+        <div class="form-group">
+          <label><strong>Grade Level:</strong></label>
+          <select name="gl" required>
+            <option value="GL8">GL8</option>
+            <option value="GL9">GL9</option>
+            <option value="GL10" selected>GL10</option>
+            <option value="GL12">GL12</option>
+            <option value="GL13">GL13</option>
+            <option value="GL14">GL14</option>
+            <option value="GL15">GL15</option>
+            <option value="GL16">GL16</option>
+          </select>
+        </div>
 
-        // Initialize Firebase
-        setLogLevel('debug');
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
-        const auth = getAuth(app);
+        <div class="form-group">
+          <label><strong>Subject:</strong></label>
+          <input type="text" name="subject" placeholder="e.g., General Knowledge" required>
+        </div>
 
-        // --- DOM Elements ---
-        const statusEl = document.getElementById("status");
-        const contentEl = document.getElementById("content");
-        const logoutBtn = document.getElementById("logout-btn");
-        const userIdDisplay = document.getElementById("user-id-display");
+        <div class="form-group">
+          <label><strong>Main File (DOCX, PDF, or Image):</strong></label>
+          <input type="file" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" required>
+        </div>
+
+        <div class="form-group">
+          <label><strong>Past Question File (optional):</strong></label>
+          <input type="file" name="past_file" accept=".docx,.pdf,.png,.jpg,.jpeg">
+        </div>
+
+        <button type="submit" class="btn">
+          <i class="fas fa-cogs"></i> Generate Quiz
+        </button>
+      </form>
+
+      <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Generating your quiz...</p>
+      </div>
+
+      <div id="quizResult" class="quiz-box" style="display:none;">
+        <h4><i class="fas fa-tasks"></i> Generated Quiz</h4>
+        <div id="quizContent"></div>
         
-        // Navigation buttons
-        const quizBtn = document.getElementById("quiz-btn");
-        const discussionBtn = document.getElementById("discussion-btn");
-
-        // Quiz Generator Elements
-        const quizGeneratorSection = document.getElementById("quiz-generator-section");
-        const sourceTextEl = document.getElementById("source-text");
-        const imageUploadEl = document.getElementById("image-upload");
-        const fileNameEl = document.getElementById("file-name");
-        const imagePreviewContainer = document.getElementById("image-preview-container");
-        const imagePreviewEl = document.getElementById("image-preview");
-        const generateBtn = document.getElementById("generate-btn");
-        const quizFlowContainer = document.getElementById("quiz-flow-container");
-        const quizContainer = document.getElementById("quiz-container");
-        const nextBtn = document.getElementById("next-btn");
-        const quizResultsEl = document.getElementById("quiz-results");
-
-        // Discussion Room Elements
-        const discussionRoomSection = document.getElementById("discussion-room-section");
-        const discussionQuestionEl = document.getElementById("discussion-question");
-        const discussionMessagesEl = document.getElementById("discussion-messages");
-        const discussionForm = document.getElementById("discussion-form");
-        const messageInput = document.getElementById("message-input");
-        const summaryBtn = document.getElementById("summary-btn");
-
-        // --- Custom Modal Functions ---
-        const modal = document.getElementById("custom-modal");
-        const modalTitle = document.getElementById("modal-title");
-        const modalMessage = document.getElementById("modal-message");
-        const modalActions = document.getElementById("modal-actions");
-        const modalSpinner = document.getElementById("modal-spinner");
-
-        function showModal(title, message, showSpinner = false) {
-            modalTitle.textContent = title;
-            modalMessage.textContent = message;
-            if (showSpinner) {
-                modalSpinner.classList.remove('hidden');
-                modalActions.classList.add('hidden');
-            } else {
-                modalSpinner.classList.add('hidden');
-                modalActions.classList.remove('hidden');
-            }
-            modal.style.display = 'flex';
-        }
+        <div class="quiz-actions">
+          <button class="btn" id="submitQuizBtn">
+            <i class="fas fa-check-circle"></i> Submit Answers
+          </button>
+          <button class="btn btn-accent" id="newQuizBtn" style="display:none;">
+            <i class="fas fa-plus-circle"></i> Generate New Quiz
+          </button>
+        </div>
         
-        function hideModal() {
-            modal.style.display = 'none';
+        <div class="score-container" id="scoreContainer" style="display:none;">
+          Your score: <span id="score">0</span> out of <span id="total">0</span>
+        </div>
+      </div>
+      <div id="errorMessage" class="error-message" style="display:none;"></div>
+    </div>
+
+    <div class="card">
+      <h3><i class="fas fa-history"></i> Your Recent Activity</h3>
+      {% if history %}
+        <ul class="activity-list">
+          {% for item in history %}
+            <li class="activity-item">
+              <strong>{{ item.get("subject", "Unknown Subject") }}</strong> - 
+              Score: {{ item.get("score", "N/A") }} | 
+              Date: {{ item.get("timestamp", "") | format_datetime }}
+            </li>
+          {% endfor %}
+        </ul>
+      {% else %}
+        <p>No activity yet. Generate your first quiz to get started!</p>
+      {% endif %}
+    </div>
+
+    <div class="card">
+      <h3><i class="fas fa-cogs"></i> Options</h3>
+      <ul class="options-list">
+        <li class="option-item">
+          <a href="{{ url_for('free_trial_quiz') }}">
+            <i class="fas fa-bolt"></i> Free Trial Quiz
+          </a>
+        </li>
+        <li class="option-item">
+          <a href="{{ url_for('discussion_index') }}">
+            <i class="fas fa-comments"></i> Join Discussion Room
+          </a>
+        </li>
+        <li class="option-item">
+          <a href="{{ url_for('create_room') }}">
+            <i class="fas fa-plus-circle"></i> Create Discussion Room
+          </a>
+        </li>
+        <li class="option-item">
+          <a href="{{ url_for('dashboard') }}">
+            <i class="fas fa-sync-alt"></i> Refresh Dashboard
+          </a>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // Enhanced fetch with authentication handling
+    async function authFetch(url, options = {}) {
+      const defaultOptions = {
+        credentials: 'include', // This is crucial for sending cookies
+        headers: {
+          ...options.headers
+        }
+      };
+
+      const mergedOptions = { ...defaultOptions, ...options };
+
+      try {
+        const response = await fetch(url, mergedOptions);
+        
+        if (response.status === 401) {
+          // Session expired - redirect to login
+          window.location.href = '/?session_expired=true';
+          return null;
         }
 
-        // --- Navigation Logic ---
-        function showSection(sectionId) {
-            quizGeneratorSection.classList.add('hidden');
-            discussionRoomSection.classList.add('hidden');
-            document.getElementById(sectionId).classList.remove('hidden');
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        quizBtn.addEventListener('click', () => showSection('quiz-generator-section'));
-        discussionBtn.addEventListener('click', () => showSection('discussion-room-section'));
+        return response;
 
-        // --- Authentication Logic ---
-        onAuthStateChanged(auth, async (user) => {
-            if (user) {
-                const userId = user.uid;
-                userIdDisplay.textContent = `User ID: ${userId}`;
-                statusEl.textContent = "Welcome to NYSC Exam Prep! 🎓 You are now logged in.";
-                contentEl.style.display = 'block';
+      } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+      }
+    }
 
-                await fetchDiscussionTopic();
-                setupDiscussionListener();
-            } else {
-                statusEl.textContent = "Please wait, signing you in...";
-                contentEl.style.display = 'none';
-                try {
-                    if (initialAuthToken) {
-                        await signInWithCustomToken(auth, initialAuthToken);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                } catch (error) {
-                    console.error("Firebase Auth failed:", error);
-                    showModal('Authentication Error', 'Failed to sign in. Please try again later.');
-                }
-            }
+    // Show/hide loading indicator
+    function setLoading(loading) {
+      document.getElementById('loading').style.display = loading ? 'block' : 'none';
+    }
+
+    // Show error message
+    function showError(message) {
+      const errorDiv = document.getElementById('errorMessage');
+      errorDiv.textContent = message;
+      errorDiv.style.display = 'block';
+      setTimeout(() => {
+        errorDiv.style.display = 'none';
+      }, 5000);
+    }
+
+    // Format date for display
+    function formatDate(dateString) {
+      const date = new Date(dateString);
+      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    }
+
+    // Quiz data storage
+    let currentQuizData = null;
+
+    document.getElementById("quizForm").addEventListener("submit", async function(e) {
+      e.preventDefault();
+      
+      const formData = new FormData(this);
+      const quizDiv = document.getElementById("quizResult");
+      const quizContent = document.getElementById("quizContent");
+      
+      setLoading(true);
+      quizDiv.style.display = 'none';
+      showError('');
+
+      try {
+        const res = await authFetch("/generate", {
+          method: "POST",
+          body: formData
         });
 
-        logoutBtn.addEventListener("click", async () => {
-            try {
-                await signOut(auth);
-                showModal('Logged Out', 'You have been successfully logged out.');
-            } catch (error) {
-                console.error("Firebase sign out failed:", error);
-                showModal('Logout Failed', 'An error occurred during logout. Please try again.');
-            }
-        });
+        if (!res) return; // Authentication failed
 
-        // --- Discussion Logic ---
-        const PUBLIC_COLLECTION = `artifacts/${appId}/public/data/discussion_messages`;
-        const DISCUSSION_TOPIC_DOC = `artifacts/${appId}/public/data/discussion_topics/current`;
-        let messages = [];
+        const data = await res.json();
 
-        async function fetchDiscussionTopic() {
-            try {
-                const topicDocRef = doc(db, DISCUSSION_TOPIC_DOC);
-                const topicDoc = await getDoc(topicDocRef);
-                if (topicDoc.exists()) {
-                    discussionQuestionEl.textContent = topicDoc.data().question;
-                } else {
-                    discussionQuestionEl.textContent = "Could not load discussion topic. A new one will be created shortly.";
-                    await setDoc(topicDocRef, { question: "What are the most effective study techniques for the NYSC exam?" });
-                }
-            } catch (error) {
-                console.error("Failed to fetch discussion topic:", error);
-                discussionQuestionEl.textContent = "Error loading topic.";
-            }
+        if (data.error) {
+          showError(data.error);
+        } else {
+          currentQuizData = data;
+          renderQuiz(data);
+          quizDiv.style.display = "block";
+          
+          // Scroll to quiz results
+          quizDiv.scrollIntoView({ behavior: 'smooth' });
         }
+      } catch (error) {
+        console.error('Error:', error);
+        showError('Failed to generate quiz. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    });
 
-        function setupDiscussionListener() {
-            const messagesCollectionRef = collection(db, PUBLIC_COLLECTION);
-            const q = query(messagesCollectionRef, orderBy('timestamp'));
-
-            onSnapshot(q, (snapshot) => {
-                discussionMessagesEl.innerHTML = '';
-                messages = [];
-                if (snapshot.empty) {
-                    discussionMessagesEl.innerHTML = '<p class="text-center text-gray-500">No messages yet. Be the first to start the discussion!</p>';
-                } else {
-                    snapshot.forEach(doc => {
-                        const msg = doc.data();
-                        messages.push(msg);
-                        const msgEl = document.createElement('div');
-                        msgEl.className = 'mb-2 p-2 rounded-lg bg-gray-50';
-                        const userLabel = msg.userId === auth.currentUser.uid ? "You" : `User (${msg.userId.substring(0, 4)}...)`;
-                        msgEl.innerHTML = `<p class="font-bold text-gray-800">${userLabel}: <span class="text-gray-700 font-normal">${msg.text}</span></p>`;
-                        discussionMessagesEl.appendChild(msgEl);
-                    });
-                    discussionMessagesEl.scrollTop = discussionMessagesEl.scrollHeight;
-                }
-            });
-        }
-
-        discussionForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            const message = messageInput.value.trim();
-            if (!message || !auth.currentUser) {
-                showModal('Error', 'Please log in and type a message to send.');
-                return;
-            }
-
-            const messagesCollectionRef = collection(db, PUBLIC_COLLECTION);
-            const userId = auth.currentUser.uid;
-
-            try {
-                await addDoc(messagesCollectionRef, {
-                    userId: userId,
-                    text: message,
-                    timestamp: new Date().toISOString()
-                });
-                messageInput.value = '';
-            } catch (error) {
-                console.error("Failed to post message:", error);
-                showModal('Error', 'Failed to send message. Please try again.');
-            }
+    // Render quiz questions
+    function renderQuiz(data) {
+      const quizContent = document.getElementById("quizContent");
+      let html = '<div class="quiz-container">';
+      
+      data.quiz.forEach((q, index) => {
+        html += `<div class="question" id="question${index}">
+          <div class="question-text">${q.question}</div>
+          <div class="options">`;
+        
+        q.options.forEach((opt, optIndex) => {
+          const optionLetter = String.fromCharCode(65 + optIndex);
+          html += `<label class="option">
+            <input type="radio" name="q${index}" value="${optionLetter}">
+            <span class="option-label">${optionLetter}.</span>
+            <span class="option-text">${opt}</span>
+          </label>`;
         });
+        
+        html += `</div>
+          <div class="result-feedback" id="feedback${index}"></div>
+        </div>`;
+      });
+      
+      html += '</div>';
+      quizContent.innerHTML = html;
+      
+      // Show submit button, hide new quiz button
+      document.getElementById('submitQuizBtn').style.display = 'block';
+      document.getElementById('newQuizBtn').style.display = 'none';
+      document.getElementById('scoreContainer').style.display = 'none';
+    }
 
-        summaryBtn.addEventListener('click', async () => {
-            if (messages.length === 0) {
-                showModal('No Messages', 'There are no messages to summarize yet.');
-                return;
-            }
-
-            summaryBtn.textContent = 'Generating...';
-            summaryBtn.disabled = true;
-
-            const systemPrompt = "You are a world-class academic tutor. Provide a concise, single-paragraph summary of the key findings from the student discussion. Your summary should be helpful and insightful for someone preparing for an exam.";
-            const userQuery = `Summarize the following discussion messages:\n\n${messages.map(m => m.text).join('\n')}`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-            };
+    // Calculate score when submit button is clicked
+    document.getElementById('submitQuizBtn').addEventListener('click', function() {
+      if (!currentQuizData) return;
+      
+      let score = 0;
+      const total = currentQuizData.quiz.length;
+      
+      // Check each question
+      for (let i = 0; i < total; i++) {
+        const questionNum = i;
+        const selectedOption = document.querySelector(`input[name=q${questionNum}]:checked`);
+        const feedbackElement = document.getElementById(`feedback${questionNum}`);
+        const questionElement = document.getElementById(`question${questionNum}`);
+        
+        if (selectedOption) {
+          if (selectedOption.value === currentQuizData.quiz[i].correct) {
+            score++;
+            // Highlight correct answer
+            const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
+            correctOption.classList.add('correct');
             
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                const summaryText = result?.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (summaryText) {
-                    showModal('Final Discussion Summary', summaryText);
-                } else {
-                    showModal('Summary Error', 'Failed to generate a summary. Please try again.');
-                }
-            } catch (error) {
-                console.error("Failed to get summary from API:", error);
-                showModal('Summary Error', 'An error occurred while generating the summary. Please check your network connection.');
-            } finally {
-                summaryBtn.textContent = 'Get Final Summary';
-                summaryBtn.disabled = false;
-            }
-        });
-
-        // --- Quiz Generation Logic ---
-        let base64Image = null;
-        let quizQuestions = [];
-        let currentQuestionIndex = 0;
-        let userAnswers = [];
-
-        imageUploadEl.addEventListener('change', (event) => {
-            const file = event.target.files[0];
-            if (!file) {
-                fileNameEl.textContent = 'No file selected';
-                imagePreviewContainer.classList.add('hidden');
-                base64Image = null;
-                return;
-            }
-
-            fileNameEl.textContent = file.name;
-            const reader = new FileReader();
-            reader.onload = () => {
-                base64Image = reader.result.split(',')[1];
-                imagePreviewEl.src = reader.result;
-                imagePreviewContainer.classList.remove('hidden');
-                sourceTextEl.value = ''; // Clear text area if image is uploaded
-            };
-            reader.readAsDataURL(file);
-        });
-
-        generateBtn.addEventListener('click', async () => {
-            const documentContent = sourceTextEl.value.trim();
+            // Show feedback
+            feedbackElement.textContent = "Correct! Well done.";
+            feedbackElement.classList.add('correct-answer');
+            feedbackElement.style.display = 'block';
+          } else {
+            // Highlight incorrect answer
+            selectedOption.parentElement.classList.add('incorrect');
             
-            if (!documentContent && !base64Image) {
-                showModal('No Input', 'Please paste text or upload an image to generate a quiz.');
-                return;
-            }
-
-            showModal('Generating Quiz...', 'Please wait while the AI analyzes your content and generates the questions.', true);
-            quizContainer.innerHTML = '';
-
-            const systemPrompt = "You are a quiz-generating AI for exam preparation. Your task is to analyze the provided content and generate a 5-question, multiple-choice quiz. The output MUST be a JSON array of objects, where each object has a 'question' (string), 'options' (an array of 4 strings), and 'answer' (the correct option from the array).";
+            // Highlight correct answer
+            const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
+            correctOption.classList.add('correct');
             
-            const parts = [];
-
-            if (base64Image) {
-                parts.push({
-                    text: "Generate a 5-question quiz based on the text and concepts in this image."
-                });
-                parts.push({
-                    inlineData: {
-                        mimeType: "image/jpeg", // Assuming JPEG, but could be dynamic
-                        data: base64Image
-                    }
-                });
-            } else {
-                 if (documentContent.length < 50) {
-                    showModal('Input Too Short', 'Please paste at least 50 characters of text to generate a meaningful quiz.');
-                    return;
-                }
-                parts.push({ text: `Generate a 5-question quiz from the following text:\n\n${documentContent}` });
-            }
-            
-            const payload = {
-                contents: [{ parts: parts }],
-                systemInstruction: {
-                    parts: [{ text: systemPrompt }]
-                },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                "question": { "type": "STRING" },
-                                "options": {
-                                    "type": "ARRAY",
-                                    "items": { "type": "STRING" },
-                                    "minItems": 4,
-                                    "maxItems": 4
-                                },
-                                "answer": { "type": "STRING" }
-                            },
-                            "propertyOrdering": ["question", "options", "answer"]
-                        }
-                    }
-                }
-            };
-            
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            try {
-                const response = await fetch(apiUrl, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                });
-                const result = await response.json();
-                
-                if (result.candidates && result.candidates.length > 0 &&
-                    result.candidates[0].content && result.candidates[0].content.parts &&
-                    result.candidates[0].content.parts.length > 0) {
-                    
-                    const jsonString = result.candidates[0].content.parts[0].text;
-                    const parsedQuiz = JSON.parse(jsonString);
-
-                    startQuiz(parsedQuiz);
-                    hideModal();
-                } else {
-                    console.error("API response was empty or malformed:", result);
-                    showModal('Generation Failed', 'Could not generate quiz. Please try again with a different text/image.');
-                }
-            } catch (error) {
-                console.error("API call failed:", error);
-                showModal('Generation Failed', 'An error occurred. Please ensure your input is clear and try again.');
-            }
-        });
-
-        function startQuiz(questions) {
-            quizQuestions = questions;
-            currentQuestionIndex = 0;
-            userAnswers = [];
-            quizFlowContainer.classList.remove('hidden');
-            quizResultsEl.classList.add('hidden');
-            displayQuestion();
-        }
-
-        function displayQuestion() {
-            if (currentQuestionIndex < quizQuestions.length) {
-                const q = quizQuestions[currentQuestionIndex];
-                const questionHtml = `
-                    <div class="question-item p-4 bg-gray-50 rounded-lg shadow-sm">
-                        <p class="font-semibold text-gray-700 mb-2">Question ${currentQuestionIndex + 1} of ${quizQuestions.length}: ${q.question}</p>
-                        <ul class="space-y-2">
-                            ${q.options.map((option, idx) => `
-                                <li class="option-item p-2 bg-white rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors duration-150" data-option="${option}">
-                                    ${option}
-                                </li>
-                            `).join('')}
-                        </ul>
-                    </div>
-                `;
-                quizContainer.innerHTML = questionHtml;
-                nextBtn.textContent = currentQuestionIndex === quizQuestions.length - 1 ? 'Submit Quiz' : 'Next';
-
-                document.querySelectorAll('.option-item').forEach(item => {
-                    item.addEventListener('click', (e) => {
-                        document.querySelectorAll('.option-item').forEach(opt => opt.classList.remove('selected-option'));
-                        e.target.classList.add('selected-option');
-                    });
-                });
-            }
+            // Show feedback
+            feedbackElement.textContent = "Incorrect. The correct answer is highlighted in green.";
+            feedbackElement.classList.add('incorrect-answer');
+            feedbackElement.style.display = 'block';
+          }
+        } else {
+          // No answer selected
+          // Highlight correct answer
+          const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
+          correctOption.classList.add('correct');
+          
+          // Show feedback
+          feedbackElement.textContent = "You didn't answer this question. The correct answer is highlighted in green.";
+          feedbackElement.classList.add('incorrect-answer');
+          feedbackElement.style.display = 'block';
         }
         
-        nextBtn.addEventListener('click', () => {
-            const selectedOptionEl = document.querySelector('.option-item.selected-option');
-            if (!selectedOptionEl) {
-                showModal('No Answer Selected', 'Please select an answer before proceeding.');
-                return;
-            }
-
-            const selectedAnswer = selectedOptionEl.dataset.option;
-            userAnswers[currentQuestionIndex] = selectedAnswer;
-
-            if (currentQuestionIndex === quizQuestions.length - 1) {
-                showResults();
-            } else {
-                currentQuestionIndex++;
-                displayQuestion();
-            }
+        // Disable all radio buttons after submission
+        const allOptions = questionElement.querySelectorAll('input[type="radio"]');
+        allOptions.forEach(option => {
+          option.disabled = true;
         });
+      }
+      
+      // Update score
+      document.getElementById('score').textContent = score;
+      document.getElementById('total').textContent = total;
+      document.getElementById('scoreContainer').style.display = 'block';
+      
+      // Show new quiz button and hide submit button
+      document.getElementById('submitQuizBtn').style.display = 'none';
+      document.getElementById('newQuizBtn').style.display = 'block';
+      
+      // Save quiz result to history (you would typically send this to your backend)
+      saveQuizResult(score, total);
+    });
 
-        function showResults() {
-            quizContainer.classList.add('hidden');
-            quizResultsEl.classList.remove('hidden');
-            nextBtn.classList.add('hidden');
+    // Generate new quiz button
+    document.getElementById('newQuizBtn').addEventListener('click', function() {
+      document.getElementById('quizForm').reset();
+      document.getElementById('quizResult').style.display = 'none';
+      currentQuizData = null;
+    });
 
-            let score = 0;
-            let resultsHtml = `<h3 class="text-xl font-bold mb-4">Quiz Results</h3>`;
-            
-            quizQuestions.forEach((q, index) => {
-                const userAnswer = userAnswers[index];
-                const isCorrect = userAnswer === q.answer;
-                if (isCorrect) {
-                    score++;
-                }
+    // Save quiz result (pseudo-code - you'd implement this with your backend)
+    function saveQuizResult(score, total) {
+      console.log(`Quiz completed with score: ${score}/${total}`);
+      // Here you would typically send the results to your backend
+      // to store in the user's history
+    }
 
-                resultsHtml += `
-                    <div class="p-4 rounded-lg mb-4 ${isCorrect ? 'bg-green-100' : 'bg-red-100'}">
-                        <p class="font-semibold text-gray-800 mb-2">Question ${index + 1}: ${q.question}</p>
-                        <ul class="space-y-1 text-sm">
-                            ${q.options.map(option => `
-                                <li class="${option === q.answer ? 'font-bold text-green-700' : ''} ${option === userAnswer && !isCorrect ? 'line-through text-red-500' : ''}">
-                                    ${option} ${option === q.answer ? '[Correct]' : ''} ${option === userAnswer && !isCorrect ? '[Your Answer]' : ''}
-                                </li>
-                            `).join('')}
-                        </ul>
-                        <p class="mt-2 ${isCorrect ? 'text-green-700' : 'text-red-700'}">
-                            You answered: **${userAnswer}** (${isCorrect ? 'Correct' : 'Incorrect'})
-                        </p>
-                    </div>
-                `;
-            });
+    // Add datetime formatting helper
+    function formatDateTime(dateString) {
+      if (!dateString) return 'N/A';
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleString();
+      } catch (e) {
+        return dateString;
+      }
+    }
 
-            resultsHtml = `
-                <div class="p-6 bg-white rounded-lg shadow-md">
-                    <h3 class="text-xl font-bold text-gray-800 mb-4">Your Score: ${score} / ${quizQuestions.length}</h3>
-                    ${resultsHtml}
-                </div>
-            `;
-
-            quizResultsEl.innerHTML = resultsHtml;
-        }
-    </script>
+    // Format all datetime elements on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const dateElements = document.querySelectorAll('[data-datetime]');
+      dateElements.forEach(el => {
+        el.textContent = formatDateTime(el.getAttribute('data-datetime'));
+      });
+    });
+  </script>
 </body>
 </html>
