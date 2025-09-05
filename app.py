@@ -209,70 +209,105 @@ def quiz_to_uniform_schema(quiz_obj):
     return out
 
 def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
-    system_prompt = f"""
-You are a question generator for NYSC exam prep.
-Return STRICT JSON ONLY with this shape:
+    """
+    Ask Gemini to generate realistic Nigerian Civil Service/NYSC promotional exam-style MCQs.
+    """
+    prompt = f"""
+    You are an expert in Nigerian Public Service Rules and NYSC regulations, tasked with generating a high-quality promotional exam. Your questions must be based ONLY on the provided context.
 
-{{
-  "questions": [
+    Source material:
+    {context_text[:4000]}  # limit to first 4000 chars for context
+
+    Guidelines for Exam Questions:
+    - Create 5-10 multiple-choice questions.
+    - Each question must have exactly 4 options (A, B, C, D).
+    - Questions should test a candidate's practical knowledge of duties, rights, and administrative procedures.
+    - Questions should be derived from the three main categories in the source document: NYSC Operations, Public Service Rules, and Current Affairs.
+    - DO NOT ask questions about the document's structure, such as question numbers, section names, or list counts.
+    - Each item must include: "question", "options", "answer".
+    - The "answer" must exactly match one of the options.
+    - Return output in strict JSON format ONLY, with no extra commentary.
+
+    Example JSON output for a professional exam:
     {{
-      "question": "string",
-      "options": ["A", "B", "C", "D"],
-      "answer": "the correct option text EXACTLY as shown in options"
+      "questions": [
+        {{
+          "question": "An officer on SGL 08 has a disciplinary issue. According to the Public Service Rules, what committee is responsible for handling the promotion, appointment, and discipline of this officer?",
+          "options": [
+            "Junior Staff Committee (JSC) Local",
+            "Junior Staff Committee (JSC) Headquarters",
+            "Senior Staff Committee (SSC)",
+            "A special committee with a chairman on SGL 15 and above"
+          ],
+          "answer": "Senior Staff Committee (SSC)"
+        }},
+        {{
+          "question": "A serving corps member is reported by an employer for an infraction. As a Local Government Inspector, what is the first step you would take to address the issue?",
+          "options": [
+            "Immediately withdraw the corps member from the PPA.",
+            "Issue a query to the corps member to get a documented response.",
+            "Visit the corps member's place of primary assignment and interview all parties.",
+            "Invite the corps member to the office to hear their side of the story."
+          ],
+          "answer": "Invite the corps member to the office to hear their side of the story."
+        }},
+        {{
+          "question": "According to the provided document, the amended Electoral Bill allows political parties to conduct a primary election to replace a candidate under what circumstance?",
+          "options": [
+            "If the candidate withdraws from the race.",
+            "If the candidate fails a security clearance.",
+            "If the candidate dies during an election.",
+            "If the candidate is indicted for a criminal offence."
+          ],
+          "answer": "If the candidate dies during an election."
+        }}
+      ]
     }}
-  ]
-}}
-
-Rules:
-- 5 questions.
-- 4 options each.
-- Options should be concise.
-- **Make questions based ONLY on the provided context. Focus on the core subject matter, not on chapters, sections, or document formatting.**
-- Tailor the difficulty to a {grade} level.
-- Focus on the {subject} section of the context.
-- No prose, no explanation, no markdown, ONLY pure JSON.
-Context (trimmed):
-{context_text[:1500]}
-"""
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        system_prompt,
-        safety_settings={
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-        }
-    )
-
-    raw = (response.text or "").strip()
-
+    """
     try:
-        return quiz_to_uniform_schema(json.loads(raw))
-    except Exception:
-        pass
-
-    jb = _extract_first_json_block(raw)
-    if jb:
+        response = genai.GenerativeModel("gemini-pro").generate_content(prompt)
+        raw = (response.text or "").strip()
+        
+        # Try parsing as strict JSON
         try:
-            return quiz_to_uniform_schema(json.loads(jb))
+            return quiz_to_uniform_schema(json.loads(raw))
         except Exception:
             pass
 
-    questions = []
-    blocks = re.split(r"\n\s*\n", raw)
-    for b in blocks:
-        lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
-        if len(lines) >= 5:
-            q = lines[0]
-            opts = []
-            for ln in lines[1:5]:
-                m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
-                opts.append(m.group(1) if m else ln)
-            while len(opts) < 4:
-                opts.append("N/A")
-            questions.append({"question": q, "options": opts[:4], "answer": ""})
-    return {"questions": questions[:5]}
+        # If that fails, try to extract a JSON block
+        jb = _extract_first_json_block(raw)
+        if jb:
+            try:
+                return quiz_to_uniform_schema(json.loads(jb))
+            except Exception:
+                pass
+        
+        # As a final fallback, try regex parsing
+        questions = []
+        blocks = re.split(r"\n\s*\n", raw)
+        for b in blocks:
+            lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
+            if len(lines) >= 5:
+                q = lines[0]
+                opts = []
+                for ln in lines[1:5]:
+                    m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
+                    opts.append(m.group(1) if m else ln)
+                while len(opts) < 4:
+                    opts.append("N/A")
+                questions.append({"question": q, "options": opts[:4], "answer": ""})
+        
+        if questions:
+            return {"questions": questions[:5]}
+
+        # If all parsing fails, log and return empty quiz
+        logger.error(f"Gemini parsing failed after all attempts. Raw output:\n{raw}", exc_info=True)
+        return {"questions": []}
+    
+    except Exception as e:
+        logger.error(f"Gemini API call failed: {e}", exc_info=True)
+        return {"questions": []}
+
 
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
     try:
@@ -453,7 +488,7 @@ def generate_quiz():
             return jsonify(quiz)
 
         except Exception as e:
-            logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+            logger.error("Quiz generation failed: %s", str(e), exc_info=True)
             return jsonify({"error": "Quiz generation failed due to a server error."}), 500
         finally:
             if tmp_path and os.path.exists(tmp_path):
@@ -463,7 +498,7 @@ def generate_quiz():
                     logger.warning(f"Could not delete temp file: {cleanup_err}")
 
     except Exception as e:
-        logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+        logger.error("Quiz generation failed: %s", str(e), exc_info=True)
         return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Discussion API ---
