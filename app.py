@@ -1,3 +1,4 @@
+# app.py
 import os
 import re
 import json
@@ -52,7 +53,7 @@ logger.remove()
 logger.add("logs/app_{time}.log", rotation="1 day", level="INFO")
 logger.add(lambda msg: print(msg, flush=True), level="INFO")  # also log to stdout
 
-# --- Firebase Setup (optional) ---
+# --- Firebase Setup ---
 db = None
 try:
     firebase_json = os.getenv("FIREBASE_SERVICE_ACCOUNT")
@@ -316,7 +317,7 @@ def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
 
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
     try:
-        # Note: GNews is not imported in this version, so this function is commented out for now.
+        # GNews is no longer used, so this function is a placeholder
         return "Not implemented."
     except Exception as e:
         logger.error(f"GNews fetch failed: {e}")
@@ -354,6 +355,12 @@ def login():
 
 @app.route("/logout", methods=["POST"])
 def logout():
+    # Remove the user's presence from Firestore on logout.
+    user_email = session.get("user_email")
+    if user_email and db:
+        user_doc_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("presence_users").document(user_email.replace('.', '_'))
+        user_doc_ref.delete()
+    
     session.clear()
     return jsonify({"ok": True})
 
@@ -368,13 +375,8 @@ def dashboard():
 @app.route("/admin_dashboard")
 @admin_required
 def admin_dashboard():
-    return render_template("admin_dashboard.html")
-
-@app.route("/quiz")
-@login_required
-def quiz():
-    """Renders the quiz page for the user."""
-    return render_template("quiz.html")
+    # Pass necessary global variables to the template
+    return render_template("admin_dashboard.html", app_id=APP_ID)
 
 # --- Polling-based Presence & Discussion Endpoints ---
 @app.route("/api/ping", methods=["POST"])
@@ -383,9 +385,12 @@ def ping():
     try:
         user_email = session.get("user_email")
         if user_email and db:
-            # Firestore requires a document ID, using the sanitized email.
             user_doc_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("presence_users").document(user_email.replace('.', '_'))
-            user_doc_ref.set({"last_active": firestore.SERVER_TIMESTAMP}, merge=True)
+            user_doc_ref.set({
+                "user_email": user_email,
+                "last_active": firestore.SERVER_TIMESTAMP,
+                "role": "admin" if user_email == ADMIN_USER else "user",
+            }, merge=True)
             logger.debug(f"Ping received from {user_email}, presence updated.")
         return jsonify({"status": "ok"})
     except Exception as e:
@@ -397,16 +402,10 @@ def ping():
 def get_online_users():
     try:
         if db:
-            # Query Firestore for users active in the last 3 minutes
-            cutoff = datetime.utcnow() - timedelta(minutes=3)
-            # Firestore doesn't allow filtering by a timestamp field with a ServerTimestamp, so we'll use a regular timestamp.
-            # However, for a simple demo, we can just fetch all and filter in Python.
+            cutoff = datetime.utcnow() - timedelta(minutes=1) # 1 minute cutoff
             presence_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("presence_users")
-            users_stream = presence_ref.stream()
-            online_users = [
-                doc.id.replace('_', '.') for doc in users_stream 
-                if doc.to_dict().get("last_active") and (datetime.utcnow() - doc.to_dict()["last_active"].replace(tzinfo=None)) < timedelta(minutes=3)
-            ]
+            users_stream = presence_ref.where(filter=FieldFilter("last_active", ">=", cutoff)).stream()
+            online_users = [{"email": doc.id.replace('_', '.'), **doc.to_dict()} for doc in users_stream]
             return jsonify({"count": len(online_users), "users": online_users})
         return jsonify({"count": 0, "users": []})
     except Exception as e:
@@ -422,25 +421,22 @@ def discussions():
         
     if request.method == "POST":
         data = request.get_json()
-        title = data.get("title")
-        content = data.get("content")
-        if not title or not content:
-            return jsonify({"error": "Title and content are required"}), 400
+        question = data.get("question")
+        if not question:
+            return jsonify({"error": "Question is required"}), 400
 
         try:
             topics_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics")
             new_topic_doc = topics_ref.add({
-                "title": title,
-                "content": content,
+                "question": question,
                 "author": session["user_email"],
                 "created_at": firestore.SERVER_TIMESTAMP
             })
             topic_id = new_topic_doc[1].id
-            return jsonify({"id": topic_id, "title": title, "content": content})
+            return jsonify({"id": topic_id, "question": question})
         except Exception as e:
             logger.error(f"Failed to create discussion: {e}", exc_info=True)
             return jsonify({"error": "Failed to create discussion"}), 500
-
     else: # GET request
         try:
             topics_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics")
@@ -451,52 +447,47 @@ def discussions():
             logger.error(f"Failed to fetch discussions: {e}", exc_info=True)
             return jsonify({"error": "Failed to fetch discussions"}), 500
 
-@app.route("/api/discussions/<topic_id>/reply", methods=["POST"])
+@app.route("/api/discussions/<topic_id>/messages", methods=["GET", "POST"])
 @login_required
-def discussion_reply(topic_id):
+def discussion_messages(topic_id):
     if not db:
         return jsonify({"error": "Database not configured"}), 500
+
+    if request.method == "POST":
+        data = request.get_json()
+        message_text = data.get("message")
+        if not message_text:
+            return jsonify({"error": "Message text is required"}), 400
         
-    data = request.get_json()
-    message_text = data.get("message")
-    if not message_text:
-        return jsonify({"error": "Message text is required"}), 400
-    
-    try:
-        messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
-        new_message_ref = messages_ref.add({
-            "text": message_text,
-            "author": session["user_email"],
-            "created_at": firestore.SERVER_TIMESTAMP
-        })
-        return jsonify({"id": new_message_ref[1].id, "message": message_text})
-    except Exception as e:
-        logger.error(f"Failed to post message: {e}", exc_info=True)
-        return jsonify({"error": "Failed to post message"}), 500
+        try:
+            messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
+            new_message_ref = messages_ref.add({
+                "text": message_text,
+                "author": session["user_email"],
+                "created_at": firestore.SERVER_TIMESTAMP,
+                "is_admin": session.get("user_email") == ADMIN_USER
+            })
+            return jsonify({"id": new_message_ref[1].id, "message": message_text})
+        except Exception as e:
+            logger.error(f"Failed to post message: {e}", exc_info=True)
+            return jsonify({"error": "Failed to post message"}), 500
+    else: # GET request
+        try:
+            messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
+            messages_stream = messages_ref.order_by("created_at").stream()
+            message_list = [{"id": msg.id, **msg.to_dict()} for msg in messages_stream]
+            return jsonify(message_list)
+        except Exception as e:
+            logger.error(f"Failed to get messages: {e}", exc_info=True)
+            return jsonify({"error": "Failed to get messages"}), 500
 
-@app.route("/api/discussions/<topic_id>/messages", methods=["GET"])
-@login_required
-def get_discussion_messages(topic_id):
-    if not db:
-        return jsonify({"error": "Database not configured"}), 500
-
-    try:
-        messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
-        messages_stream = messages_ref.order_by("created_at").stream()
-        message_list = [{"id": msg.id, **msg.to_dict()} for msg in messages_stream]
-        return jsonify(message_list)
-    except Exception as e:
-        logger.error(f"Failed to get messages: {e}", exc_info=True)
-        return jsonify({"error": "Failed to get messages"}), 500
-
-@app.route("/api/discussions/<topic_id>/summary", methods=["GET"])
+@app.route("/api/discussions/<topic_id>/summary", methods=["POST"])
 @login_required
 def discussion_summary(topic_id):
     if not db:
         return jsonify({"error": "Database not configured"}), 500
     
     try:
-        # Fetch the topic and its messages
         topic_doc = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).get()
         if not topic_doc.exists:
             return jsonify({"error": "Topic not found"}), 404
@@ -505,7 +496,6 @@ def discussion_summary(topic_id):
         messages_stream = messages_ref.order_by("created_at").stream()
         message_list = [f"{msg.to_dict()['author']}: {msg.to_dict()['text']}" for msg in messages_stream]
         
-        # Combine all messages into a single string for Gemini
         joined_messages = "\n".join(message_list)
         
         prompt = f"""
@@ -516,57 +506,14 @@ def discussion_summary(topic_id):
         Discussion:
         {joined_messages}
         """
-
         model = genai.GenerativeModel("gemini-1.5-flash")
         response = model.generate_content(prompt)
         summary = (response.text or "").strip()
 
-        return jsonify({"topic_title": topic_doc.to_dict().get("title"), "summary": summary})
+        return jsonify({"topic_title": topic_doc.to_dict().get("question"), "summary": summary})
     except Exception as e:
         logger.error(f"Gemini summary failed: {e}", exc_info=True)
         return jsonify({"error": "Failed to generate summary"}), 500
-
-# --- Free Trial Quiz API ---
-@app.route("/api/quiz/free", methods=["POST"])
-@login_required
-def generate_free_quiz():
-    try:
-        data = request.get_json(force=True, silent=True) or {}
-        grade = data.get("gl") or data.get("grade") or "GL10"
-        subject = data.get("subject") or "General Knowledge"
-
-        context_text = ""
-        if subject.lower() in ["global politics", "current affairs"]:
-            # Placeholder content for now since GNews is not implemented.
-            context_text = "Current affairs in Nigeria. The latest election results show..."
-        elif subject.lower() == "international bodies and acronyms":
-            context_text = """
-            What does FIFA stand for? Fédération Internationale de Football Association.
-            What does FAO stand for? Food and Agriculture Organization.
-            What does ECOWAS stand for? Economic Community of West African States.
-            What does NAFDAC stand for? National Agency for Food and Drug Administration and Control.
-            What does NSCDC stand for? Nigeria Security and Civil Defence Corps.
-            What does WHO stand for? World Health Organization.
-            What does UNICEF stand for? United Nations Children's Fund.
-            What does AU stand for? African Union.
-            What does NATO stand for? North Atlantic Treaty Organization.
-            What does OPEC stand for? Organization of the Petroleum Exporting Countries.
-            """
-        else:
-            context_text = f"Trial quiz for {subject} at grade {grade}"
-
-        cache_key = generate_cache_key(f"{context_text}_{grade}_{subject}", 10, "freequiz")
-        cached = cache_get(cache_key)
-        if cached:
-            return jsonify(cached)
-
-        quiz = call_gemini_for_quiz(context_text, subject, grade)
-        cache_set(cache_key, quiz, ttl_minutes=10)
-        return jsonify(quiz)
-
-    except Exception as e:
-        logger.error(f"Free quiz error: {e}")
-        return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Document Upload Quiz API ---
 @app.route("/api/quiz/upload", methods=["POST"])
@@ -575,7 +522,6 @@ def generate_quiz():
     try:
         if "document" not in request.files:
             return jsonify({"error": "No file uploaded"}), 400
-
         file = request.files["document"]
         if file.filename == "":
             return jsonify({"error": "No selected file"}), 400
@@ -627,6 +573,25 @@ def generate_quiz():
     except Exception as e:
         logger.error("Quiz generation failed: %s", str(e), exc_info=True)
         return jsonify({"error": "Quiz generation failed"}), 500
+
+@app.route("/api/delete_topic/<topic_id>", methods=["DELETE"])
+@admin_required
+def delete_topic(topic_id):
+    if not db:
+        return jsonify({"error": "Database not configured"}), 500
+
+    try:
+        # Delete all messages within the topic first
+        messages_ref = db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).collection("messages")
+        for message in messages_ref.stream():
+            message.reference.delete()
+        
+        # Then delete the topic itself
+        db.collection("artifacts").document(APP_ID).collection("public").document("data").collection("discussion_topics").document(topic_id).delete()
+        return jsonify({"success": True, "message": "Topic deleted successfully."})
+    except Exception as e:
+        logger.error(f"Failed to delete discussion topic: {e}", exc_info=True)
+        return jsonify({"error": "Failed to delete discussion topic"}), 500
 
 # --- Run ---
 if __name__ == "__main__":
