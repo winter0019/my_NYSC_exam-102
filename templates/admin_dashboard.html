@@ -6,6 +6,9 @@
     <title>NYSC Exam Prep - Admin Dashboard</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
         .online-list-item {
             display: flex;
             align-items: center;
@@ -18,20 +21,66 @@
             line-height: 1;
             margin-right: 8px;
         }
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 100;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background-color: #fefefe;
+            padding: 24px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+            width: 90%;
+            max-width: 500px;
+            animation: slideIn 0.3s ease-out;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateY(-20px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen p-6">
+    <!-- Custom Modal -->
+    <div id="custom-modal" class="modal">
+        <div class="modal-content">
+            <div class="flex justify-between items-center mb-4">
+                <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
+                <button onclick="hideModal()" class="text-gray-500 hover:text-gray-800 focus:outline-none">&times;</button>
+            </div>
+            <p id="modal-message" class="text-gray-700 mb-4"></p>
+            <div id="modal-actions" class="flex justify-end">
+                <button onclick="hideModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200 focus:outline-none">OK</button>
+            </div>
+        </div>
+    </div>
+
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg p-8">
         <div class="flex justify-between items-center mb-6">
             <h1 class="text-2xl font-bold">Admin Dashboard</h1>
-            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">Logout</button>
+            <button id="logout-btn" class="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600">Logout</button>
         </div>
 
         <div id="content" class="space-y-6">
-            <p class="mb-4 text-gray-800">Welcome, Admin! 🎉</p>
+            <p id="status-message" class="mb-4 text-gray-600">Authenticating...</p>
 
             <section class="bg-gray-100 p-6 rounded-lg shadow-inner">
                 <h2 class="text-lg font-semibold mb-4">Live Statistics</h2>
+                <p class="mb-4 text-gray-600 text-sm">Online user data updates every 10 seconds.</p>
                 <div class="space-y-2">
                     <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold text-lg">...</span></p>
                     <ul id="online-users-list" class="space-y-1"></ul>
@@ -43,8 +92,8 @@
                 <p class="mb-4 text-gray-600">Post a new question for all users to discuss.</p>
                 <form id="create-discussion-form" class="space-y-4">
                     <div>
-                        <label for="discussion-question" class="block text-sm font-medium text-gray-700">Discussion Question</label>
-                        <textarea id="discussion-question" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"></textarea>
+                        <label for="discussion-question-input" class="block text-sm font-medium text-gray-700">Discussion Question</label>
+                        <textarea id="discussion-question-input" rows="4" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2"></textarea>
                     </div>
                     <button type="submit" class="w-full bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700">Post Discussion</button>
                 </form>
@@ -54,8 +103,8 @@
                 <h2 class="text-lg font-semibold mb-4">Exam Tools</h2>
                 <p class="mb-4 text-gray-600">Generate quizzes from uploaded documents or try the free trial quiz.</p>
                 <div class="flex gap-4">
-                    <a href="/quiz" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Upload & Generate Quiz</a>
-                    <a href="/free_trial_quiz" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Free Trial Quiz</a>
+                    <button id="upload-quiz-btn" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors duration-200">Upload & Generate Quiz</button>
+                    <button id="free-quiz-btn" class="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors duration-200">Free Trial Quiz</button>
                 </div>
             </section>
             
@@ -67,85 +116,141 @@
     </div>
 
     <script type="module">
-        import { auth, signOut } from "/static/js/firebase.js";
-        
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot, collection, query, where, Timestamp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Global variable checks
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {};
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
         // --- DOM Elements ---
         const logoutBtn = document.getElementById("logout-btn");
         const onlineUsersEl = document.getElementById("online-users");
         const onlineUsersListEl = document.getElementById("online-users-list");
         const createDiscussionForm = document.getElementById("create-discussion-form");
-        const discussionQuestionInput = document.getElementById("discussion-question");
+        const discussionQuestionInput = document.getElementById("discussion-question-input");
+        const statusMessageEl = document.getElementById("status-message");
+        const uploadQuizBtn = document.getElementById("upload-quiz-btn");
+        const freeQuizBtn = document.getElementById("free-quiz-btn");
 
-        // --- Logout Logic ---
-        logoutBtn.addEventListener("click", () => {
-            // First, sign out from Firebase Auth
-            signOut(auth).then(() => {
-                // Then, clear the session on the backend
-                fetch('/logout', {
-                    method: 'POST'
-                }).then(() => {
-                    localStorage.removeItem("userEmail");
-                    window.location.href = "/login";
-                }).catch(error => {
-                    console.error("Server-side logout failed:", error);
-                    localStorage.removeItem("userEmail");
-                    window.location.href = "/login";
-                });
-            }).catch(error => {
-                console.error("Firebase sign out failed:", error);
-                alert("Logout failed. Please try again.");
-            });
-        });
+        // Custom Modal Elements
+        const modal = document.getElementById("custom-modal");
+        const modalTitle = document.getElementById("modal-title");
+        const modalMessage = document.getElementById("modal-message");
 
-        // --- Online Users Logic ---
-        async function fetchOnlineUsers() {
-            try {
-                const response = await fetch('/online_users');
-                const data = await response.json();
-                
-                // Update the count
-                onlineUsersEl.textContent = data.online_users.length;
-                
-                // Clear and re-populate the list
-                onlineUsersListEl.innerHTML = '';
-                data.online_users.forEach(user => {
-                    const li = document.createElement('li');
-                    li.textContent = user;
-                    li.classList.add('online-list-item');
-                    onlineUsersListEl.appendChild(li);
-                });
-            } catch (error) {
-                console.error("Failed to fetch online users:", error);
-                onlineUsersEl.textContent = "N/A";
-            }
+        function showModal(title, message) {
+            modalTitle.textContent = title;
+            modalMessage.textContent = message;
+            modal.style.display = 'flex';
         }
         
-        fetchOnlineUsers();
-        setInterval(fetchOnlineUsers, 30000); // Poll every 30 seconds
+        function hideModal() {
+            modal.style.display = 'none';
+        }
+
+        // --- Firebase Initialization and Auth Logic ---
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const auth = getAuth(app);
+
+        let presenceIntervalId = null;
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                statusMessageEl.textContent = `Welcome, Admin! 🎉`;
+                
+                // Track user presence
+                const presenceDocRef = doc(db, `artifacts/${appId}/public/data/presence_users/${user.uid}`);
+                const updatePresence = () => {
+                    setDoc(presenceDocRef, {
+                        userId: user.uid,
+                        last_active: Timestamp.now(),
+                        type: 'admin'
+                    }, { merge: true }).catch(error => console.error("Failed to update presence:", error));
+                };
+                updatePresence();
+                if (presenceIntervalId) clearInterval(presenceIntervalId);
+                presenceIntervalId = setInterval(updatePresence, 10000); // Update every 10 seconds
+
+                // Listen for live users
+                const presenceColRef = collection(db, `artifacts/${appId}/public/data/presence_users`);
+                const q = query(presenceColRef);
+                onSnapshot(q, (snapshot) => {
+                    const onlineUsers = [];
+                    const cutoff = Timestamp.now().seconds - 60; // 60 seconds cutoff for "online"
+                    snapshot.forEach(doc => {
+                        const data = doc.data();
+                        if (data.last_active && data.last_active.seconds > cutoff) {
+                             // Use a more readable ID for display
+                             const displayId = data.userId === user.uid ? 'You (Admin)' : `User ID: ${data.userId.substring(0, 8)}`;
+                             onlineUsers.push(displayId);
+                        }
+                    });
+                    onlineUsersEl.textContent = onlineUsers.length;
+                    onlineUsersListEl.innerHTML = '';
+                    onlineUsers.forEach(id => {
+                        const li = document.createElement('li');
+                        li.textContent = id;
+                        li.classList.add('online-list-item', 'text-gray-700');
+                        onlineUsersListEl.appendChild(li);
+                    });
+                });
+
+            } else {
+                statusMessageEl.textContent = `Signing you in...`;
+                if (presenceIntervalId) clearInterval(presenceIntervalId);
+                try {
+                    if (initialAuthToken) {
+                        await signInWithCustomToken(auth, initialAuthToken);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                } catch (error) {
+                    console.error("Firebase Auth failed:", error);
+                    showModal('Authentication Error', 'Failed to sign in. Please try again later.');
+                }
+            }
+        });
+
+        // --- Logout Logic ---
+        logoutBtn.addEventListener("click", async () => {
+            try {
+                await signOut(auth);
+                showModal('Logged Out', 'You have been successfully logged out.');
+            } catch (error) {
+                console.error("Firebase sign out failed:", error);
+                showModal('Logout Failed', 'An error occurred during logout.');
+            }
+        });
 
         // --- Admin Actions ---
         createDiscussionForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const question = discussionQuestionInput.value.trim();
-            if (!question) return;
+            if (!question) {
+                showModal('Invalid Input', 'Discussion question cannot be empty.');
+                return;
+            }
 
             try {
-                const response = await fetch('/create_discussion', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ question: question })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    alert("Discussion topic posted successfully!");
-                    discussionQuestionInput.value = '';
-                } else {
-                    alert("Failed to post discussion: " + data.error);
-                }
+                const topicDocRef = doc(db, `artifacts/${appId}/public/data/discussion_topics/current`);
+                await setDoc(topicDocRef, { question: question, posted_at: Timestamp.now() });
+                showModal('Success', 'New discussion topic posted successfully!');
+                discussionQuestionInput.value = '';
             } catch (error) {
                 console.error("Failed to post discussion:", error);
-                alert("An error occurred while posting the discussion.");
+                showModal('Error', 'An error occurred while posting the discussion. Please try again.');
             }
+        });
+
+        uploadQuizBtn.addEventListener('click', () => {
+             showModal('Upload & Generate Quiz', 'This feature is available on the user dashboard. Please use the "Generate Quiz" button there.');
+        });
+
+        freeQuizBtn.addEventListener('click', () => {
+             showModal('Free Trial Quiz', 'This feature is not yet available. Please try the quiz generator on the user dashboard!');
         });
     </script>
 </body>
