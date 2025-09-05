@@ -162,117 +162,61 @@ def admin_required(f):
     return decorated_function
 
 # --- Robust Gemini quiz parsing ---
-def _extract_first_json_block(text: str):
-    if not text:
-        return None
-    # First, look for code-fenced JSON
-    m = re.search(r"```json\s*(\{.*?\})\s*```", text, flags=re.S)
-    if m:
-        return m.group(1)
-    # Then, try to find a standalone JSON object
-    m = re.search(r"(\{(?:.|\n)*\})", text)
-    if m:
-        return m.group(1)
-    return None
+def call_gemini_for_quiz(text, subject, grade):
+    """
+    Ask Gemini to generate realistic Nigerian Civil Service/NYSC promotional exam-style MCQs.
+    """
+    prompt = f"""
+    You are tasked with generating multiple-choice questions for the Nigerian Civil Service / NYSC promotional exam.
 
-def quiz_to_uniform_schema(quiz_obj):
-    out = {"questions": []}
-    items = quiz_obj.get("questions") or quiz_obj.get("quiz") or []
+    Source material:
+    {text[:4000]}  # limit to first 4000 chars for context
 
-    for q in items:
-        question = str(q.get("question") or q.get("q") or "").strip()
-        options = q.get("options") or q.get("choices") or []
-        answer = str(q.get("answer") or q.get("correct") or q.get("correct_answer") or "").strip()
+    Guidelines:
+    - Create 5–10 multiple-choice questions.
+    - Each question must have exactly 4 options (A, B, C, D).
+    - Return output in strict JSON format ONLY, no extra commentary.
+    - Each item must include: "question", "options", "answer".
+    - "answer" must exactly match one of the options.
+    - Do not include references to chapters, sections, or document structure.
+    - Focus on practical, regulatory, and disciplinary exam-style questions.
 
-        if isinstance(options, dict):
-            keys = ["A", "B", "C", "D"]
-            options = [options.get(k, "").strip() for k in keys if options.get(k)]
-
-        if isinstance(options, list):
-            options = [str(o).strip() for o in options if o]
-        else:
-            options = []
-
-        while len(options) < 4:
-            options.append("N/A")
-        options = options[:4]
-
-        if answer not in options:
-            answer = ""
-
-        if question:
-            out["questions"].append({
-                "question": question,
-                "options": options,
-                "answer": answer
-            })
-    return out
-
-def call_gemini_for_quiz(context_text: str, subject: str, grade: str):
-    system_prompt = f"""
-You are a question generator for NYSC exam prep.
-Return STRICT JSON ONLY with this shape:
-
-{{
-  "questions": [
+    Example JSON output:
     {{
-      "question": "string",
-      "options": ["A", "B", "C", "D"],
-      "answer": "the correct option text EXACTLY as shown in options"
+      "questions": [
+        {{
+          "question": "According to the Public Service Rules, how many working days of casual leave may be granted in a calendar year?",
+          "options": ["7", "10", "14", "21"],
+          "answer": "10"
+        }},
+        {{
+          "question": "Which of the following is a disciplinary offence for corps members under the NYSC Bye-laws?",
+          "options": [
+            "Being absent from PPA without permission",
+            "Wearing full NYSC uniform",
+            "Signing the attendance register",
+            "Attending CDS meetings"
+          ],
+          "answer": "Being absent from PPA without permission"
+        }}
+      ]
     }}
-  ]
-}}
-
-Rules:
-- 5 questions.
-- 4 options each.
-- Options should be concise.
-- **Make questions based ONLY on the provided context. Focus on the core subject matter, not on chapters, sections, or document formatting.**
-- Tailor the difficulty to a {grade} level.
-- Focus on the {subject} section of the context.
-- No prose, no explanation, no markdown, ONLY pure JSON.
-Context (trimmed):
-{context_text[:1500]}
-"""
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(
-        system_prompt,
-        safety_settings={
-            HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-            HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-        }
-    )
-
-    raw = (response.text or "").strip()
-
+    """
     try:
-        return quiz_to_uniform_schema(json.loads(raw))
-    except Exception:
-        pass
+        response = genai.GenerativeModel("gemini-pro").generate_content(prompt)
+        raw_output = response.text.strip()
 
-    jb = _extract_first_json_block(raw)
-    if jb:
-        try:
-            return quiz_to_uniform_schema(json.loads(jb))
-        except Exception:
-            pass
+        # Try parsing as JSON
+        quiz = json.loads(raw_output)
 
-    questions = []
-    blocks = re.split(r"\n\s*\n", raw)
-    for b in blocks:
-        lines = [ln.strip("- ").strip() for ln in b.split("\n") if ln.strip()]
-        if len(lines) >= 5:
-            q = lines[0]
-            opts = []
-            for ln in lines[1:5]:
-                m = re.match(r"^[A-D][\).:\-]\s*(.+)$", ln, flags=re.I)
-                opts.append(m.group(1) if m else ln)
-            while len(opts) < 4:
-                opts.append("N/A")
-            questions.append({"question": q, "options": opts[:4], "answer": ""})
-    return {"questions": questions[:5]}
+        # Basic validation
+        if not quiz.get("questions"):
+            raise ValueError("No questions found in Gemini output")
+
+        return quiz
+    except Exception as e:
+        logger.error("Gemini parsing failed: %s\nOutput was:\n%s", str(e), raw_output)
+        return {"questions": []}
 
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
     try:
@@ -398,6 +342,7 @@ def generate_free_quiz():
         if cached:
             return jsonify(cached)
 
+        # Using the updated, strict-JSON-focused Gemini call
         quiz = call_gemini_for_quiz(context_text, subject, grade)
         cache_set(cache_key, quiz, ttl_minutes=10)
         return jsonify(quiz)
@@ -444,6 +389,7 @@ def generate_quiz():
             if cached:
                 return jsonify(cached)
 
+            # Using the updated, strict-JSON-focused Gemini call
             quiz = call_gemini_for_quiz(context_text, subject, grade)
             
             if not quiz or not quiz.get("questions"):
