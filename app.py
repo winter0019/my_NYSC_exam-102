@@ -161,7 +161,7 @@ def admin_required(f):
         return f(*args, **kwargs)
     return decorated_function
 
-# --- Robust Gemini quiz parsing ---
+# --- New Robust Gemini quiz parsing ---
 def call_gemini_for_quiz(text, subject, grade):
     """
     Ask Gemini to generate realistic Nigerian Civil Service/NYSC promotional exam-style MCQs.
@@ -205,7 +205,7 @@ def call_gemini_for_quiz(text, subject, grade):
     try:
         response = genai.GenerativeModel("gemini-pro").generate_content(prompt)
         raw_output = response.text.strip()
-
+        
         # Try parsing as JSON
         quiz = json.loads(raw_output)
 
@@ -215,7 +215,7 @@ def call_gemini_for_quiz(text, subject, grade):
 
         return quiz
     except Exception as e:
-        logger.error("Gemini parsing failed: %s\nOutput was:\n%s", str(e), raw_output)
+        logger.error(f"Gemini parsing failed: {e}\nOutput was:\n{raw_output}", exc_info=True)
         return {"questions": []}
 
 def fetch_gnews_text(query, max_results=5, language='en', country='NG'):
@@ -342,13 +342,12 @@ def generate_free_quiz():
         if cached:
             return jsonify(cached)
 
-        # Using the updated, strict-JSON-focused Gemini call
         quiz = call_gemini_for_quiz(context_text, subject, grade)
         cache_set(cache_key, quiz, ttl_minutes=10)
         return jsonify(quiz)
 
     except Exception as e:
-        logger.error(f"Free quiz error: {e}")
+        logger.error(f"Free quiz error: {e}", exc_info=True)
         return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Document Upload Quiz API ---
@@ -389,7 +388,6 @@ def generate_quiz():
             if cached:
                 return jsonify(cached)
 
-            # Using the updated, strict-JSON-focused Gemini call
             quiz = call_gemini_for_quiz(context_text, subject, grade)
             
             if not quiz or not quiz.get("questions"):
@@ -399,7 +397,7 @@ def generate_quiz():
             return jsonify(quiz)
 
         except Exception as e:
-            logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+            logger.error("Quiz generation failed: %s", str(e), exc_info=True)
             return jsonify({"error": "Quiz generation failed due to a server error."}), 500
         finally:
             if tmp_path and os.path.exists(tmp_path):
@@ -409,7 +407,7 @@ def generate_quiz():
                     logger.warning(f"Could not delete temp file: {cleanup_err}")
 
     except Exception as e:
-        logger.error("Quiz generation failed: %s\n%s", str(e), traceback.format_exc())
+        logger.error("Quiz generation failed: %s", str(e), exc_info=True)
         return jsonify({"error": "Quiz generation failed"}), 500
 
 # --- Discussion API ---
@@ -442,7 +440,7 @@ def handle_discussions():
             logger.info(f"New discussion created: '{question}' with ID {new_topic_ref.id}")
             return jsonify({"success": True, "message": "Discussion topic created."})
         except Exception as e:
-            logger.error(f"Failed to create discussion: {e}")
+            logger.error(f"Failed to create discussion: {e}", exc_info=True)
             return jsonify({"error": "Failed to create discussion"}), 500
 
     else: # GET request
@@ -452,7 +450,7 @@ def handle_discussions():
             topics = [{"id": doc.id, **doc.to_dict()} for doc in topics_stream]
             return jsonify(topics)
         except Exception as e:
-            logger.error(f"Failed to fetch discussions: {e}")
+            logger.error(f"Failed to fetch discussions: {e}", exc_info=True)
             return jsonify({"error": "Failed to fetch discussions"}), 500
 
 # API to post messages to a specific discussion
@@ -479,7 +477,7 @@ def post_discussion_message(topic_id):
         })
         return jsonify({"success": True})
     except Exception as e:
-        logger.error(f"Failed to post message: {e}")
+        logger.error(f"Failed to post message: {e}", exc_info=True)
         return jsonify({"error": "Failed to post message"}), 500
 
 # API to get all messages for a specific discussion
@@ -495,7 +493,7 @@ def get_discussion_messages(topic_id):
         message_list = [{"id": msg.id, **msg.to_dict()} for msg in messages]
         return jsonify(message_list)
     except Exception as e:
-        logger.error(f"Failed to get messages: {e}")
+        logger.error(f"Failed to get messages: {e}", exc_info=True)
         return jsonify({"error": "Failed to get messages"}), 500
 
 # --- Online Users API ---
@@ -512,7 +510,7 @@ def online_users():
         online_users = [{"id": doc.id, **doc.to_dict()} for doc in online_users_stream]
         return jsonify(online_users)
     except Exception as e:
-        logger.error(f"Failed to fetch online users: {e}")
+        logger.error(f"Failed to fetch online users: {e}", exc_info=True)
         return jsonify({"error": "Failed to fetch online users"}), 500
 
 # --- Run ---
