@@ -369,13 +369,14 @@ def dashboard():
     user = session["user_email"]
     if user == ADMIN_USER:
         return redirect(url_for("admin_dashboard"))
+    # The normal user dashboard is rendered here.
     return render_template("dashboard.html", email=user)
 
 @app.route("/admin_dashboard")
 @admin_required
 def admin_dashboard():
     # Pass necessary global variables to the template
-    return render_template("admin_dashboard.html", app_id=APP_ID)
+    return render_template("admin_dashboard.html", app_id=APP_ID, admin_email=ADMIN_USER)
 
 # --- Polling-based Presence & Discussion Endpoints ---
 # The /api/ping endpoint was missing, so we're adding it back.
