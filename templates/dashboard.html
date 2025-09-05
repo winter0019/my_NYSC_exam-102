@@ -2,341 +2,68 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>NYSC Exam Dashboard</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+  <!-- Load Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Load Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Font Awesome Icons -->
   <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
   <style>
-    :root {
-      --primary: #007bff;
-      --secondary: #0056b3;
-      --accent: #28a745;
-      --light: #f8f9fa;
-      --dark: #343a40;
-    }
-    
-    body { 
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    body {
+      font-family: 'Inter', sans-serif;
       background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-      color: #333;
-      line-height: 1.6;
-      margin: 0;
-      padding: 20px;
-      min-height: 100vh;
     }
-    
-    .container { 
-      max-width: 1000px; 
-      margin: auto; 
-      background: #fff; 
-      padding: 30px; 
-      border-radius: 15px;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    .btn:hover {
+      transform: translateY(-1px);
     }
-    
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-      padding-bottom: 20px;
-      border-bottom: 2px solid #eee;
-    }
-    
-    h2, h3 { 
-      color: var(--dark);
-      margin-bottom: 15px;
-    }
-    
-    h2 {
-      color: var(--primary);
-      font-size: 2em;
-    }
-    
-    .card { 
-      background: var(--light); 
-      padding: 20px; 
-      margin: 20px 0; 
-      border: 1px solid #ddd; 
-      border-radius: 10px;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
     .card:hover {
       transform: translateY(-2px);
       box-shadow: 0 5px 15px rgba(0,0,0,0.1);
     }
-    
-    .btn { 
-      padding: 12px 20px; 
-      border-radius: 6px; 
-      background: var(--primary); 
-      color: #fff; 
-      text-decoration: none; 
-      border: none;
-      cursor: pointer;
-      font-size: 14px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
-    
-    .btn:hover { 
-      background: var(--secondary);
-      transform: translateY(-1px);
-    }
-    
-    .btn-accent {
-      background: var(--accent);
-    }
-    
-    .btn-accent:hover {
-      background: #218838;
-    }
-    
-    .logout { 
-      background: #dc3545;
-    }
-    
-    .logout:hover {
-      background: #c82333;
-    }
-    
-    .quiz-box { 
-      background: #eef; 
-      padding: 20px; 
-      border-radius: 8px; 
-      margin-top: 20px;
-      border-left: 4px solid var(--primary);
-    }
-    
-    .form-group {
-      margin-bottom: 15px;
-    }
-    
-    label {
-      display: block;
-      margin-bottom: 5px;
-      font-weight: 600;
-      color: var(--dark);
-    }
-    
-    select, input[type="text"], input[type="file"] {
-      width: 100%;
-      padding: 10px;
-      border: 2px solid #e9ecef;
-      border-radius: 5px;
-      font-size: 14px;
-    }
-    
-    select:focus, input[type="text"]:focus {
-      outline: none;
-      border-color: var(--primary);
-    }
-    
-    .activity-list {
-      list-style: none;
-      padding: 0;
-    }
-    
-    .activity-item {
-      padding: 10px 15px;
-      margin: 8px 0;
-      background: white;
-      border-radius: 5px;
-      border-left: 3px solid var(--primary);
-    }
-    
-    .options-list {
-      list-style: none;
-      padding: 0;
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 15px;
-    }
-    
-    .option-item {
-      background: white;
-      padding: 15px;
-      border-radius: 8px;
-      text-align: center;
-      transition: all 0.3s ease;
-    }
-    
-    .option-item:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    
-    .option-item a {
-      text-decoration: none;
-      color: var(--primary);
-      font-weight: 600;
-      display: block;
-    }
-    
-    .option-item:hover a {
-      color: var(--secondary);
-    }
-    
-    .loading {
-      display: none;
-      text-align: center;
-      padding: 20px;
-    }
-    
     .spinner {
-      border: 3px solid #f3f3f3;
-      border-top: 3px solid var(--primary);
-      border-radius: 50%;
-      width: 30px;
-      height: 30px;
+      border-top-color: #007bff;
       animation: spin 1s linear infinite;
-      margin: 0 auto 10px;
     }
-    
     @keyframes spin {
       0% { transform: rotate(0deg); }
       100% { transform: rotate(360deg); }
     }
-    
-    .error-message {
-      background: #ffebee;
-      color: #dc3545;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-      border-left: 4px solid #dc3545;
-    }
-    
-    .success-message {
-      background: #d4edda;
-      color: #155724;
-      padding: 10px;
-      border-radius: 5px;
-      margin: 10px 0;
-      border-left: 4px solid #28a745;
-    }
-    
-    /* Quiz specific styles */
-    .quiz-container {
-      margin-top: 20px;
-    }
-    
-    .question {
-      margin-bottom: 25px;
-      padding-bottom: 20px;
-      border-bottom: 1px solid #eee;
-    }
-    
-    .question-text {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 15px;
-      color: #333;
-    }
-    
-    .options {
-      margin-left: 20px;
-    }
-    
-    .option {
-      display: flex;
-      align-items: flex-start;
-      margin-bottom: 12px;
-      padding: 12px;
-      border-radius: 8px;
-      border: 1px solid #e0e0e0;
-      transition: all 0.3s ease;
-      cursor: pointer;
-    }
-    
-    .option:hover {
-      background-color: #f5f7ff;
-      border-color: var(--primary);
-    }
-    
-    .option input {
-      margin-right: 15px;
-      margin-top: 3px;
-    }
-    
-    .option-label {
-      font-weight: 500;
-      margin-right: 10px;
-      min-width: 30px;
-    }
-    
-    .score-container {
-      text-align: center;
-      padding: 20px;
-      font-size: 18px;
-      font-weight: 600;
-      color: #333;
-      margin: 20px 0;
-      background: #f8f9fa;
-      border-radius: 8px;
-    }
-    
-    .correct {
-      background-color: #d4edda;
-      border-color: #c3e6cb;
-    }
-    
-    .incorrect {
-      background-color: #f8d7da;
-      border-color: #f5c6cb;
-    }
-    
-    .result-feedback {
-      margin-top: 10px;
-      font-size: 14px;
-      padding: 8px 12px;
-      border-radius: 4px;
-      display: none;
-    }
-    
-    .correct-answer {
-      background-color: #d4edda;
-      color: #155724;
-    }
-    
-    .incorrect-answer {
-      background-color: #f8d7da;
-      color: #721c24;
-    }
-    
-    .quiz-actions {
-      display: flex;
-      justify-content: space-between;
-      margin-top: 20px;
-    }
   </style>
 </head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h2><i class="fas fa-graduation-cap"></i> NYSC Exam Dashboard</h2>
-      <a class="btn logout" href="{{ url_for('logout') }}">
-        <i class="fas fa-sign-out-alt"></i> Logout
-      </a>
-    </div>
-    
-    <div class="card">
-      <h3><i class="fas fa-user"></i> User Information</h3>
-      <p>Welcome, <strong>{{ email }}</strong></p>
-      <p><strong>Grade Level:</strong> {{ session.get('user_grade', 'GL10') }}</p>
-      <p><strong>IP Address:</strong> {{ request.remote_addr }}</p>
-      <p><strong>Status:</strong> <span style="color: var(--accent);">Active</span></p>
+<body class="p-4 sm:p-6 lg:p-8 min-h-screen">
+
+  <div class="container mx-auto max-w-4xl bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row justify-between items-center pb-5 border-b-2 border-gray-200 mb-6">
+      <h2 class="text-3xl sm:text-4xl font-bold text-blue-600 mb-4 sm:mb-0">
+        <i class="fas fa-graduation-cap mr-2"></i> NYSC Exam Dashboard
+      </h2>
+      <button id="logoutBtn" class="btn bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-300">
+        <i class="fas fa-sign-out-alt mr-2"></i> Logout
+      </button>
     </div>
 
-    <div class="card">
-      <h3><i class="fas fa-file-upload"></i> Generate Quiz from Documents</h3>
-      <form id="quizForm" enctype="multipart/form-data">
-        <div class="form-group">
-          <label><strong>Grade Level:</strong></label>
-          <select name="gl" required>
+    <!-- User Information Card -->
+    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
+      <h3 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-user mr-2"></i> User Information</h3>
+      <p id="welcomeMessage" class="mb-2">Welcome, <strong id="userEmail">Loading...</strong></p>
+      <p id="userIdDisplay" class="mb-2 text-sm text-gray-500"></p>
+      <p><strong>Grade Level:</strong> <span id="gradeLevel">GL10</span></p>
+      <p><strong>Status:</strong> <span id="userStatus" class="text-green-600 font-semibold">Active</span></p>
+    </div>
+
+    <!-- Quiz Generation Card -->
+    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
+      <h3 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-file-upload mr-2"></i> Generate Quiz from Documents</h3>
+      <form id="quizForm" class="space-y-4">
+        <div>
+          <label for="gradeLevelSelect" class="block font-semibold text-gray-700">Grade Level:</label>
+          <select id="gradeLevelSelect" name="gl" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition-colors duration-200 p-2">
             <option value="GL8">GL8</option>
             <option value="GL9">GL9</option>
             <option value="GL10" selected>GL10</option>
@@ -347,327 +74,412 @@
             <option value="GL16">GL16</option>
           </select>
         </div>
-
-        <div class="form-group">
-          <label><strong>Subject:</strong></label>
-          <input type="text" name="subject" placeholder="e.g., General Knowledge" required>
+        <div>
+          <label for="subjectInput" class="block font-semibold text-gray-700">Subject:</label>
+          <input type="text" id="subjectInput" name="subject" placeholder="e.g., General Knowledge" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
         </div>
-
-        <div class="form-group">
-          <label><strong>Main File (DOCX, PDF, or Image):</strong></label>
-          <input type="file" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" required>
+        <div>
+          <label for="fileInput" class="block font-semibold text-gray-700">Main File (DOCX, PDF, or Image):</label>
+          <input type="file" id="fileInput" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
         </div>
-
-        <div class="form-group">
-          <label><strong>Past Question File (optional):</strong></label>
-          <input type="file" name="past_file" accept=".docx,.pdf,.png,.jpg,.jpeg">
+        <div>
+          <label for="pastFileInput" class="block font-semibold text-gray-700">Past Question File (optional):</label>
+          <input type="file" id="pastFileInput" name="past_file" accept=".docx,.pdf,.png,.jpg,.jpeg" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
         </div>
-
-        <button type="submit" class="btn">
-          <i class="fas fa-cogs"></i> Generate Quiz
+        <button type="submit" class="btn w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-all duration-300 flex items-center justify-center space-x-2">
+          <i class="fas fa-cogs"></i>
+          <span>Generate Quiz</span>
         </button>
       </form>
 
-      <div class="loading" id="loading">
-        <div class="spinner"></div>
-        <p>Generating your quiz...</p>
+      <div id="loading" class="hidden text-center py-4">
+        <div class="spinner w-8 h-8 mx-auto border-4 rounded-full border-gray-200 border-t-blue-500"></div>
+        <p class="text-gray-600 mt-2">Generating your quiz...</p>
       </div>
-
-      <div id="quizResult" class="quiz-box" style="display:none;">
-        <h4><i class="fas fa-tasks"></i> Generated Quiz</h4>
+      
+      <div id="quizResult" class="hidden mt-6 bg-gray-100 p-6 rounded-xl border-l-4 border-blue-500">
+        <h4 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-tasks mr-2"></i> Generated Quiz</h4>
         <div id="quizContent"></div>
-        
-        <div class="quiz-actions">
-          <button class="btn" id="submitQuizBtn">
-            <i class="fas fa-check-circle"></i> Submit Answers
+        <div class="flex flex-col sm:flex-row justify-between items-center mt-6 space-y-4 sm:space-y-0 sm:space-x-4">
+          <button id="submitQuizBtn" class="btn w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition-all duration-300">
+            <i class="fas fa-check-circle mr-2"></i> Submit Answers
           </button>
-          <button class="btn btn-accent" id="newQuizBtn" style="display:none;">
-            <i class="fas fa-plus-circle"></i> Generate New Quiz
+          <button id="newQuizBtn" class="btn w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition-all duration-300 hidden">
+            <i class="fas fa-plus-circle mr-2"></i> Generate New Quiz
           </button>
         </div>
-        
-        <div class="score-container" id="scoreContainer" style="display:none;">
-          Your score: <span id="score">0</span> out of <span id="total">0</span>
+        <div id="scoreContainer" class="hidden text-center py-4 mt-4 bg-gray-200 rounded-lg font-semibold">
+          Your score: <span id="score" class="text-green-600">0</span> out of <span id="total" class="text-blue-600">0</span>
         </div>
       </div>
-      <div id="errorMessage" class="error-message" style="display:none;"></div>
+      <div id="errorMessage" class="hidden bg-red-100 text-red-700 p-3 rounded-lg mt-4 border-l-4 border-red-500"></div>
+      <div id="successMessage" class="hidden bg-green-100 text-green-700 p-3 rounded-lg mt-4 border-l-4 border-green-500"></div>
     </div>
 
-    <div class="card">
-      <h3><i class="fas fa-history"></i> Your Recent Activity</h3>
-      {% if history %}
-        <ul class="activity-list">
-          {% for item in history %}
-            <li class="activity-item">
-              <strong>{{ item.get("subject", "Unknown Subject") }}</strong> - 
-              Score: {{ item.get("score", "N/A") }} | 
-              Date: {{ item.get("timestamp", "") | format_datetime }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p>No activity yet. Generate your first quiz to get started!</p>
-      {% endif %}
+    <!-- Recent Activity Card -->
+    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
+      <h3 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-history mr-2"></i> Your Recent Activity</h3>
+      <ul id="activityList" class="activity-list space-y-2">
+        <li id="noActivityMessage" class="text-gray-500 text-center py-4">No activity yet. Generate your first quiz to get started!</li>
+      </ul>
     </div>
-
-    <div class="card">
-      <h3><i class="fas fa-cogs"></i> Options</h3>
-      <ul class="options-list">
-        <li class="option-item">
-          <a href="{{ url_for('free_trial_quiz') }}">
-            <i class="fas fa-bolt"></i> Free Trial Quiz
+    
+    <!-- Options Card -->
+    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200">
+      <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-cogs mr-2"></i> Options</h3>
+      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <li>
+          <a href="#" id="freeTrialBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
+            <i class="fas fa-bolt text-blue-500 mb-2"></i>
+            <span class="block font-semibold text-gray-700">Free Trial Quiz</span>
           </a>
         </li>
-        <li class="option-item">
-          <a href="{{ url_for('discussion_index') }}">
-            <i class="fas fa-comments"></i> Join Discussion Room
+        <li>
+          <a href="#" id="joinDiscussionBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
+            <i class="fas fa-comments text-blue-500 mb-2"></i>
+            <span class="block font-semibold text-gray-700">Join Discussion Room</span>
           </a>
         </li>
-        <li class="option-item">
-          <a href="{{ url_for('create_room') }}">
-            <i class="fas fa-plus-circle"></i> Create Discussion Room
+        <li>
+          <a href="#" id="createRoomBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
+            <i class="fas fa-plus-circle text-blue-500 mb-2"></i>
+            <span class="block font-semibold text-gray-700">Create Discussion Room</span>
           </a>
         </li>
-        <li class="option-item">
-          <a href="{{ url_for('dashboard') }}">
-            <i class="fas fa-sync-alt"></i> Refresh Dashboard
+        <li>
+          <a href="#" id="refreshBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
+            <i class="fas fa-sync-alt text-blue-500 mb-2"></i>
+            <span class="block font-semibold text-gray-700">Refresh Dashboard</span>
           </a>
         </li>
       </ul>
     </div>
+
   </div>
 
-  <script>
-    // Enhanced fetch with authentication handling
-    async function authFetch(url, options = {}) {
-      const defaultOptions = {
-        credentials: 'include', // This is crucial for sending cookies
-        headers: {
-          ...options.headers
-        }
-      };
+  <!-- Firebase Scripts -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+    import { setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
 
-      const mergedOptions = { ...defaultOptions, ...options };
-
-      try {
-        const response = await fetch(url, mergedOptions);
-        
-        if (response.status === 401) {
-          // Session expired - redirect to login
-          window.location.href = '/?session_expired=true';
-          return null;
-        }
-
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        return response;
-
-      } catch (error) {
-        console.error('Fetch error:', error);
-        throw error;
-      }
-    }
-
-    // Show/hide loading indicator
-    function setLoading(loading) {
-      document.getElementById('loading').style.display = loading ? 'block' : 'none';
-    }
-
-    // Show error message
-    function showError(message) {
-      const errorDiv = document.getElementById('errorMessage');
-      errorDiv.textContent = message;
-      errorDiv.style.display = 'block';
-      setTimeout(() => {
-        errorDiv.style.display = 'none';
-      }, 5000);
-    }
-
-    // Format date for display
-    function formatDate(dateString) {
-      const date = new Date(dateString);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-    }
-
-    // Quiz data storage
+    // Global variables provided by the environment
+    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+    let db;
+    let auth;
+    let userId = null;
     let currentQuizData = null;
 
-    document.getElementById("quizForm").addEventListener("submit", async function(e) {
-      e.preventDefault();
-      
-      const formData = new FormData(this);
-      const quizDiv = document.getElementById("quizResult");
-      const quizContent = document.getElementById("quizContent");
-      
-      setLoading(true);
-      quizDiv.style.display = 'none';
-      showError('');
+    // UI elements
+    const quizForm = document.getElementById("quizForm");
+    const loadingDiv = document.getElementById("loading");
+    const quizResultDiv = document.getElementById("quizResult");
+    const quizContentDiv = document.getElementById("quizContent");
+    const submitQuizBtn = document.getElementById("submitQuizBtn");
+    const newQuizBtn = document.getElementById("newQuizBtn");
+    const scoreContainer = document.getElementById("scoreContainer");
+    const scoreSpan = document.getElementById("score");
+    const totalSpan = document.getElementById("total");
+    const activityList = document.getElementById("activityList");
+    const noActivityMessage = document.getElementById("noActivityMessage");
+    const userEmailSpan = document.getElementById("userEmail");
+    const userIdDisplay = document.getElementById("userIdDisplay");
+    const errorMessageDiv = document.getElementById("errorMessage");
+    const successMessageDiv = document.getElementById("successMessage");
+    const logoutBtn = document.getElementById("logoutBtn");
 
-      try {
-        const res = await authFetch("/generate", {
-          method: "POST",
-          body: formData
-        });
+    // Initialize Firebase
+    const app = initializeApp(firebaseConfig);
+    auth = getAuth(app);
+    db = getFirestore(app);
+    setLogLevel('Debug');
 
-        if (!res) return; // Authentication failed
-
-        const data = await res.json();
-
-        if (data.error) {
-          showError(data.error);
+    // Authenticate user
+    onAuthStateChanged(auth, async (user) => {
+        if (user) {
+            userId = user.uid;
+            userEmailSpan.textContent = user.email || 'Anonymous User';
+            userIdDisplay.textContent = `User ID: ${userId}`;
+            console.log("Firebase user authenticated with ID:", userId);
+            setupRealtimeHistory();
         } else {
-          currentQuizData = data;
-          renderQuiz(data);
-          quizDiv.style.display = "block";
-          
-          // Scroll to quiz results
-          quizDiv.scrollIntoView({ behavior: 'smooth' });
+            console.log("No user signed in. Attempting to sign in.");
+            if (initialAuthToken) {
+                try {
+                    await signInWithCustomToken(auth, initialAuthToken);
+                } catch (error) {
+                    console.error("Error signing in with custom token:", error);
+                    await signInAnonymously(auth);
+                }
+            } else {
+                await signInAnonymously(auth);
+            }
         }
-      } catch (error) {
-        console.error('Error:', error);
-        showError('Failed to generate quiz. Please try again.');
-      } finally {
-        setLoading(false);
-      }
     });
 
-    // Render quiz questions
-    function renderQuiz(data) {
-      const quizContent = document.getElementById("quizContent");
-      let html = '<div class="quiz-container">';
-      
-      data.quiz.forEach((q, index) => {
-        html += `<div class="question" id="question${index}">
-          <div class="question-text">${q.question}</div>
-          <div class="options">`;
-        
-        q.options.forEach((opt, optIndex) => {
-          const optionLetter = String.fromCharCode(65 + optIndex);
-          html += `<label class="option">
-            <input type="radio" name="q${index}" value="${optionLetter}">
-            <span class="option-label">${optionLetter}.</span>
-            <span class="option-text">${opt}</span>
-          </label>`;
+    function setupRealtimeHistory() {
+        if (!userId) {
+            console.log("User ID not available, cannot set up history listener.");
+            return;
+        }
+        const historyCollection = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
+        const q = query(historyCollection);
+
+        onSnapshot(q, (snapshot) => {
+            const history = [];
+            snapshot.forEach((doc) => {
+                history.push({ id: doc.id, ...doc.data() });
+            });
+            renderHistory(history);
+        }, (error) => {
+            console.error("Error fetching history:", error);
+            showMessage("Failed to load history. Please try refreshing.", "error");
         });
-        
-        html += `</div>
-          <div class="result-feedback" id="feedback${index}"></div>
-        </div>`;
-      });
-      
-      html += '</div>';
-      quizContent.innerHTML = html;
-      
-      // Show submit button, hide new quiz button
-      document.getElementById('submitQuizBtn').style.display = 'block';
-      document.getElementById('newQuizBtn').style.display = 'none';
-      document.getElementById('scoreContainer').style.display = 'none';
     }
 
-    // Calculate score when submit button is clicked
-    document.getElementById('submitQuizBtn').addEventListener('click', function() {
-      if (!currentQuizData) return;
-      
-      let score = 0;
-      const total = currentQuizData.quiz.length;
-      
-      // Check each question
-      for (let i = 0; i < total; i++) {
-        const questionNum = i;
-        const selectedOption = document.querySelector(`input[name=q${questionNum}]:checked`);
-        const feedbackElement = document.getElementById(`feedback${questionNum}`);
-        const questionElement = document.getElementById(`question${questionNum}`);
-        
-        if (selectedOption) {
-          if (selectedOption.value === currentQuizData.quiz[i].correct) {
-            score++;
-            // Highlight correct answer
-            const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
-            correctOption.classList.add('correct');
-            
-            // Show feedback
-            feedbackElement.textContent = "Correct! Well done.";
-            feedbackElement.classList.add('correct-answer');
-            feedbackElement.style.display = 'block';
-          } else {
-            // Highlight incorrect answer
-            selectedOption.parentElement.classList.add('incorrect');
-            
-            // Highlight correct answer
-            const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
-            correctOption.classList.add('correct');
-            
-            // Show feedback
-            feedbackElement.textContent = "Incorrect. The correct answer is highlighted in green.";
-            feedbackElement.classList.add('incorrect-answer');
-            feedbackElement.style.display = 'block';
-          }
+    function renderHistory(history) {
+        activityList.innerHTML = ''; // Clear existing list
+        if (history.length === 0) {
+            noActivityMessage.style.display = 'block';
         } else {
-          // No answer selected
-          // Highlight correct answer
-          const correctOption = questionElement.querySelector(`input[value="${currentQuizData.quiz[i].correct}"]`).parentElement;
-          correctOption.classList.add('correct');
-          
-          // Show feedback
-          feedbackElement.textContent = "You didn't answer this question. The correct answer is highlighted in green.";
-          feedbackElement.classList.add('incorrect-answer');
-          feedbackElement.style.display = 'block';
+            noActivityMessage.style.display = 'none';
+            // Sort history by timestamp descending
+            history.sort((a, b) => b.timestamp - a.timestamp);
+            history.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'bg-white p-4 rounded-lg border-l-4 border-blue-500 shadow-sm transition-all duration-200';
+                const date = item.timestamp ? new Date(item.timestamp.toDate()).toLocaleString() : 'N/A';
+                li.innerHTML = `
+                    <strong>${item.subject || 'Unknown Subject'}</strong> -
+                    Score: ${item.score || 'N/A'}/${item.total || 'N/A'} |
+                    Date: ${date}
+                `;
+                activityList.appendChild(li);
+            });
         }
+    }
+
+    // Helper function to show a message (error or success)
+    function showMessage(message, type) {
+        const messageDiv = type === 'error' ? errorMessageDiv : successMessageDiv;
+        const otherDiv = type === 'error' ? successMessageDiv : errorMessageDiv;
         
-        // Disable all radio buttons after submission
-        const allOptions = questionElement.querySelectorAll('input[type="radio"]');
-        allOptions.forEach(option => {
-          option.disabled = true;
+        messageDiv.textContent = message;
+        messageDiv.classList.remove('hidden');
+        otherDiv.classList.add('hidden');
+        
+        setTimeout(() => {
+            messageDiv.classList.add('hidden');
+        }, 5000);
+    }
+
+    // Generate Quiz (Simulated with LLM API call)
+    quizForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        const subject = document.getElementById('subjectInput').value;
+        const gradeLevel = document.getElementById('gradeLevelSelect').value;
+
+        loadingDiv.classList.remove('hidden');
+        quizResultDiv.classList.add('hidden');
+        showMessage('', '');
+
+        try {
+            const userPrompt = `Generate a 5-question multiple-choice quiz on the topic of "${subject}" for a "${gradeLevel}" student. Each question should have a question, four options labeled A, B, C, D, and a correct answer key. The output should be a single JSON array of objects.`;
+            const systemPrompt = "You are a quiz generation expert. Your task is to create multiple-choice questions based on the user's request. The output must be valid JSON.";
+
+            const payload = {
+                contents: [{ parts: [{ text: userPrompt }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: {
+                    responseMimeType: "application/json",
+                    responseSchema: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                "question": { "type": "STRING" },
+                                "options": {
+                                    "type": "ARRAY",
+                                    "items": { "type": "STRING" }
+                                },
+                                "correct": { "type": "STRING" }
+                            }
+                        }
+                    }
+                }
+            };
+
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
+
+            const res = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) {
+                throw new Error(`API call failed with status: ${res.status}`);
+            }
+
+            const data = await res.json();
+            const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
+            if (!jsonText) {
+                throw new Error("Failed to parse quiz data from API response.");
+            }
+            
+            currentQuizData = JSON.parse(jsonText);
+            renderQuiz(currentQuizData);
+            quizResultDiv.classList.remove('hidden');
+            quizResultDiv.scrollIntoView({ behavior: 'smooth' });
+
+        } catch (error) {
+            console.error('Error generating quiz:', error);
+            showMessage('Failed to generate quiz. Please try again later.', 'error');
+        } finally {
+            loadingDiv.classList.add('hidden');
+        }
+    });
+
+    function renderQuiz(quiz) {
+        quizContentDiv.innerHTML = '';
+        quiz.forEach((q, index) => {
+            const questionElement = document.createElement('div');
+            questionElement.className = 'question mb-6 pb-4 border-b border-gray-300';
+            questionElement.id = `question${index}`;
+            questionElement.innerHTML = `
+                <div class="font-semibold text-lg text-gray-800 mb-3">${q.question}</div>
+                <div class="space-y-2">
+                    ${q.options.map((opt, optIndex) => {
+                        const optionLetter = String.fromCharCode(65 + optIndex);
+                        return `
+                            <label class="option flex items-start p-3 rounded-lg border border-gray-300 transition-colors duration-200 hover:bg-gray-100 cursor-pointer">
+                                <input type="radio" name="q${index}" value="${optionLetter}" class="mt-1 mr-3">
+                                <span class="option-label font-medium">${optionLetter}.</span>
+                                <span class="option-text flex-1">${opt}</span>
+                            </label>
+                        `;
+                    }).join('')}
+                </div>
+                <div id="feedback${index}" class="hidden mt-3 text-sm p-2 rounded-md font-medium"></div>
+            `;
+            quizContentDiv.appendChild(questionElement);
         });
-      }
-      
-      // Update score
-      document.getElementById('score').textContent = score;
-      document.getElementById('total').textContent = total;
-      document.getElementById('scoreContainer').style.display = 'block';
-      
-      // Show new quiz button and hide submit button
-      document.getElementById('submitQuizBtn').style.display = 'none';
-      document.getElementById('newQuizBtn').style.display = 'block';
-      
-      // Save quiz result to history (you would typically send this to your backend)
-      saveQuizResult(score, total);
-    });
-
-    // Generate new quiz button
-    document.getElementById('newQuizBtn').addEventListener('click', function() {
-      document.getElementById('quizForm').reset();
-      document.getElementById('quizResult').style.display = 'none';
-      currentQuizData = null;
-    });
-
-    // Save quiz result (pseudo-code - you'd implement this with your backend)
-    function saveQuizResult(score, total) {
-      console.log(`Quiz completed with score: ${score}/${total}`);
-      // Here you would typically send the results to your backend
-      // to store in the user's history
+        
+        submitQuizBtn.classList.remove('hidden');
+        newQuizBtn.classList.add('hidden');
+        scoreContainer.classList.add('hidden');
     }
 
-    // Add datetime formatting helper
-    function formatDateTime(dateString) {
-      if (!dateString) return 'N/A';
-      try {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-      } catch (e) {
-        return dateString;
-      }
+    submitQuizBtn.addEventListener('click', async () => {
+        if (!currentQuizData) return;
+        
+        let score = 0;
+        const total = currentQuizData.length;
+        
+        currentQuizData.forEach((q, index) => {
+            const selectedOption = document.querySelector(`input[name="q${index}"]:checked`);
+            const feedbackElement = document.getElementById(`feedback${index}`);
+            const questionElement = document.getElementById(`question${index}`);
+            
+            if (selectedOption) {
+                const selectedValue = selectedOption.value;
+                if (selectedValue === q.correct) {
+                    score++;
+                    selectedOption.parentElement.classList.add('bg-green-100', 'border-green-500');
+                    feedbackElement.textContent = "Correct! Well done.";
+                    feedbackElement.classList.add('bg-green-100', 'text-green-700');
+                } else {
+                    selectedOption.parentElement.classList.add('bg-red-100', 'border-red-500');
+                    const correctOption = questionElement.querySelector(`input[value="${q.correct}"]`).parentElement;
+                    correctOption.classList.add('bg-green-100', 'border-green-500');
+                    feedbackElement.textContent = "Incorrect. The correct answer is highlighted in green.";
+                    feedbackElement.classList.add('bg-red-100', 'text-red-700');
+                }
+            } else {
+                const correctOption = questionElement.querySelector(`input[value="${q.correct}"]`).parentElement;
+                correctOption.classList.add('bg-green-100', 'border-green-500');
+                feedbackElement.textContent = "You didn't answer this question. The correct answer is highlighted in green.";
+                feedbackElement.classList.add('bg-red-100', 'text-red-700');
+            }
+            feedbackElement.classList.remove('hidden');
+            questionElement.querySelectorAll('input').forEach(input => input.disabled = true);
+        });
+
+        scoreSpan.textContent = score;
+        totalSpan.textContent = total;
+        scoreContainer.classList.remove('hidden');
+        submitQuizBtn.classList.add('hidden');
+        newQuizBtn.classList.remove('hidden');
+        
+        await saveQuizResult(score, total);
+    });
+
+    async function saveQuizResult(score, total) {
+        if (!userId) {
+            console.error("User not authenticated. Cannot save result.");
+            showMessage("Authentication failed. Cannot save quiz result.", "error");
+            return;
+        }
+
+        const historyCollection = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
+        const subject = document.getElementById('subjectInput').value || 'Unknown Subject';
+
+        try {
+            await addDoc(historyCollection, {
+                subject: subject,
+                score: score,
+                total: total,
+                timestamp: serverTimestamp()
+            });
+            console.log("Quiz result saved successfully!");
+            showMessage("Your quiz result has been saved!", "success");
+        } catch (e) {
+            console.error("Error adding document: ", e);
+            showMessage("Failed to save quiz result. Please try again.", "error");
+        }
     }
 
-    // Format all datetime elements on page load
-    document.addEventListener('DOMContentLoaded', function() {
-      const dateElements = document.querySelectorAll('[data-datetime]');
-      dateElements.forEach(el => {
-        el.textContent = formatDateTime(el.getAttribute('data-datetime'));
-      });
+    newQuizBtn.addEventListener('click', () => {
+        quizForm.reset();
+        quizResultDiv.classList.add('hidden');
+        currentQuizData = null;
     });
+
+    logoutBtn.addEventListener('click', () => {
+        auth.signOut().then(() => {
+            window.location.reload();
+        }).catch((error) => {
+            console.error("Error signing out:", error);
+            showMessage("Failed to log out.", "error");
+        });
+    });
+
+    // Handle other button clicks (not implemented but show a message)
+    document.getElementById('freeTrialBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        showMessage('Free trial quiz feature is not implemented yet.', 'success');
+    });
+
+    document.getElementById('joinDiscussionBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        showMessage('Join discussion room feature is not implemented yet.', 'success');
+    });
+
+    document.getElementById('createRoomBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        showMessage('Create discussion room feature is not implemented yet.', 'success');
+    });
+
+    document.getElementById('refreshBtn').addEventListener('click', (e) => {
+        e.preventDefault();
+        window.location.reload();
+    });
+
   </script>
 </body>
 </html>
