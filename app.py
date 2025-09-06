@@ -349,11 +349,11 @@ def login():
         session["user_email"] = email
         role = "admin" if email == ADMIN_USER else "user"
         
-        # New redirect logic based on user role
+        # New redirect logic: redirect normal users to the quiz page
         if role == "admin":
             return jsonify({"ok": True, "redirect": url_for("admin_dashboard")})
         else:
-            return jsonify({"ok": True, "redirect": url_for("dashboard")})
+            return jsonify({"ok": True, "redirect": url_for("quiz")})
     
     return render_template("login.html")
 
@@ -650,5 +650,6 @@ def delete_topic(topic_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
