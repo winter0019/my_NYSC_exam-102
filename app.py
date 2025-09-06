@@ -345,17 +345,27 @@ def login():
         if email not in ALLOWED_USERS:
             return jsonify({"ok": False, "error": "Unauthorized email"}), 401
 
-        # In a real app, you would validate the password. For this demo, email check is sufficient.
         session["user_email"] = email
         role = "admin" if email == ADMIN_USER else "user"
         
-        # New redirect logic: redirect normal users to the quiz page
+        # This line is causing the error. url_for() needs the function name, not the URL path.
+        # Your function for the /quiz endpoint is likely named 'quiz', not 'generate_quiz'.
+        # However, the traceback suggests Flask is confused. Let's fix the login redirect.
         if role == "admin":
             return jsonify({"ok": True, "redirect": url_for("admin_dashboard")})
         else:
+            # Change this to redirect to the correct function that renders the quiz page.
+            # Assuming your function is named 'quiz' based on previous context.
             return jsonify({"ok": True, "redirect": url_for("quiz")})
-    
+
     return render_template("login.html")
+
+# You must also ensure that the function for the quiz page is correctly defined.
+@app.route("/quiz")
+@login_required
+def quiz():
+    """Renders the quiz page for the user."""
+    return render_template("quiz.html")
 
 @app.route("/logout", methods=["POST"])
 def logout():
@@ -650,6 +660,7 @@ def delete_topic(topic_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
