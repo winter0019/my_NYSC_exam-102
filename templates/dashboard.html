@@ -1,485 +1,241 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>NYSC Exam Dashboard</title>
-  <!-- Load Tailwind CSS -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- Load Inter font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <!-- Font Awesome Icons -->
-  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-  <style>
-    body {
-      font-family: 'Inter', sans-serif;
-      background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-    }
-    .btn:hover {
-      transform: translateY(-1px);
-    }
-    .card:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    }
-    .spinner {
-      border-top-color: #007bff;
-      animation: spin 1s linear infinite;
-    }
-    @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NYSC Exam Prep - User Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); }
+        .btn:hover { transform: translateY(-1px); }
+        .card:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+    </style>
 </head>
 <body class="p-4 sm:p-6 lg:p-8 min-h-screen">
-
-  <div class="container mx-auto max-w-4xl bg-white p-6 sm:p-8 rounded-xl shadow-lg">
-
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row justify-between items-center pb-5 border-b-2 border-gray-200 mb-6">
-      <h2 class="text-3xl sm:text-4xl font-bold text-blue-600 mb-4 sm:mb-0">
-        <i class="fas fa-graduation-cap mr-2"></i> NYSC Exam Dashboard
-      </h2>
-      <button id="logoutBtn" class="btn bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-300">
-        <i class="fas fa-sign-out-alt mr-2"></i> Logout
-      </button>
-    </div>
-
-    <!-- User Information Card -->
-    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
-      <h3 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-user mr-2"></i> User Information</h3>
-      <p id="welcomeMessage" class="mb-2">Welcome, <strong id="userEmail">Loading...</strong></p>
-      <p id="userIdDisplay" class="mb-2 text-sm text-gray-500"></p>
-      <p><strong>Grade Level:</strong> <span id="gradeLevel">GL10</span></p>
-      <p><strong>Status:</strong> <span id="userStatus" class="text-green-600 font-semibold">Active</span></p>
-    </div>
-
-    <!-- Quiz Generation Card -->
-    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
-      <h3 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-file-upload mr-2"></i> Generate Quiz from Documents</h3>
-      <form id="quizForm" class="space-y-4">
-        <div>
-          <label for="gradeLevelSelect" class="block font-semibold text-gray-700">Grade Level:</label>
-          <select id="gradeLevelSelect" name="gl" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 transition-colors duration-200 p-2">
-            <option value="GL8">GL8</option>
-            <option value="GL9">GL9</option>
-            <option value="GL10" selected>GL10</option>
-            <option value="GL12">GL12</option>
-            <option value="GL13">GL13</option>
-            <option value="GL14">GL14</option>
-            <option value="GL15">GL15</option>
-            <option value="GL16">GL16</option>
-          </select>
+    <div class="container mx-auto max-w-4xl bg-white p-6 sm:p-8 rounded-xl shadow-lg">
+        <div class="flex flex-col sm:flex-row justify-between items-center pb-5 border-b-2 border-gray-200 mb-6">
+            <h2 class="text-3xl sm:text-4xl font-bold text-blue-600 mb-4 sm:mb-0">
+                <i class="fas fa-graduation-cap mr-2"></i> NYSC Exam Dashboard
+            </h2>
+            <div class="flex items-center space-x-4">
+                <p id="welcome-message" class="text-gray-700 font-semibold hidden sm:block">Welcome, <span id="user-email-display"></span></p>
+                <button id="logoutBtn" class="btn bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-4 rounded-lg shadow transition-all duration-300">
+                    <i class="fas fa-sign-out-alt mr-2"></i> Logout
+                </button>
+            </div>
         </div>
-        <div>
-          <label for="subjectInput" class="block font-semibold text-gray-700">Subject:</label>
-          <input type="text" id="subjectInput" name="subject" placeholder="e.g., General Knowledge" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 p-2">
-        </div>
-        <div>
-          <label for="fileInput" class="block font-semibold text-gray-700">Main File (DOCX, PDF, or Image):</label>
-          <input type="file" id="fileInput" name="file" accept=".docx,.pdf,.png,.jpg,.jpeg" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-        </div>
-        <div>
-          <label for="pastFileInput" class="block font-semibold text-gray-700">Past Question File (optional):</label>
-          <input type="file" id="pastFileInput" name="past_file" accept=".docx,.pdf,.png,.jpg,.jpeg" class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100 cursor-pointer">
-        </div>
-        <button type="submit" class="btn w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2.5 px-4 rounded-lg shadow-md transition-all duration-300 flex items-center justify-center space-x-2">
-          <i class="fas fa-cogs"></i>
-          <span>Generate Quiz</span>
-        </button>
-      </form>
 
-      <div id="loading" class="hidden text-center py-4">
-        <div class="spinner w-8 h-8 mx-auto border-4 rounded-full border-gray-200 border-t-blue-500"></div>
-        <p class="text-gray-600 mt-2">Generating your quiz...</p>
-      </div>
-      
-      <div id="quizResult" class="hidden mt-6 bg-gray-100 p-6 rounded-xl border-l-4 border-blue-500">
-        <h4 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-tasks mr-2"></i> Generated Quiz</h4>
-        <div id="quizContent"></div>
-        <div class="flex flex-col sm:flex-row justify-between items-center mt-6 space-y-4 sm:space-y-0 sm:space-x-4">
-          <button id="submitQuizBtn" class="btn w-full sm:w-auto bg-green-500 hover:bg-green-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition-all duration-300">
-            <i class="fas fa-check-circle mr-2"></i> Submit Answers
-          </button>
-          <button id="newQuizBtn" class="btn w-full sm:w-auto bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2.5 px-4 rounded-lg shadow transition-all duration-300 hidden">
-            <i class="fas fa-plus-circle mr-2"></i> Generate New Quiz
-          </button>
-        </div>
-        <div id="scoreContainer" class="hidden text-center py-4 mt-4 bg-gray-200 rounded-lg font-semibold">
-          Your score: <span id="score" class="text-green-600">0</span> out of <span id="total" class="text-blue-600">0</span>
-        </div>
-      </div>
-      <div id="errorMessage" class="hidden bg-red-100 text-red-700 p-3 rounded-lg mt-4 border-l-4 border-red-500"></div>
-      <div id="successMessage" class="hidden bg-green-100 text-green-700 p-3 rounded-lg mt-4 border-l-4 border-green-500"></div>
-    </div>
+        <p id="status-message" class="mb-4 text-gray-600">Authenticating...</p>
+        
+        <section class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
+            <h2 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-users mr-2"></i> Live Statistics</h2>
+            <p class="text-sm text-gray-600 mb-4">Online user data updates every 10 seconds.</p>
+            <p class="text-gray-700">Online Users: <span id="online-users" class="font-bold text-lg">...</span></p>
+            <ul id="online-users-list" class="mt-2 space-y-1"></ul>
+        </section>
 
-    <!-- Recent Activity Card -->
-    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
-      <h3 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-history mr-2"></i> Your Recent Activity</h3>
-      <ul id="activityList" class="activity-list space-y-2">
-        <li id="noActivityMessage" class="text-gray-500 text-center py-4">No activity yet. Generate your first quiz to get started!</li>
-      </ul>
+        <section class="card bg-gray-50 p-6 rounded-xl border border-gray-200 mb-6 transition-all duration-200">
+            <h2 class="text-xl font-bold text-gray-800 mb-3"><i class="fas fa-comments mr-2"></i> Active Discussion Topics</h2>
+            <p class="text-sm text-gray-600 mb-4">Click "Join" to participate in a discussion.</p>
+            <ul id="discussion-topics-list" class="space-y-4">
+                <li id="no-discussions-message" class="text-center text-gray-500">No active discussions found.</li>
+            </ul>
+        </section>
+        
+        <div id="chat-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm">
+            <div class="bg-white rounded-xl shadow-2xl w-11/12 max-w-2xl h-[80%] flex flex-col p-6 relative">
+                <div class="flex justify-between items-center mb-4 pb-2 border-b">
+                    <h3 class="text-2xl font-bold text-gray-800" id="chat-modal-title">Discussion Room</h3>
+                    <button id="leave-room-btn" class="text-gray-500 hover:text-gray-800 text-3xl font-light">&times;</button>
+                </div>
+                <p id="chat-topic-question" class="text-gray-600 italic mb-4 text-sm"></p>
+                <div id="chat-message-list" class="flex-1 overflow-y-auto border border-gray-200 rounded-lg p-3 space-y-3 mb-4"></div>
+                <form id="send-message-form" class="flex gap-2">
+                    <input id="message-input" type="text" placeholder="Type your message..." class="flex-1 rounded-lg border-gray-300 focus:border-blue-500 focus:ring-blue-500 p-3 text-sm" autocomplete="off" />
+                    <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
     </div>
     
-    <!-- Options Card -->
-    <div class="card bg-gray-50 p-6 rounded-xl border border-gray-200">
-      <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-cogs mr-2"></i> Options</h3>
-      <ul class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <li>
-          <a href="#" id="freeTrialBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
-            <i class="fas fa-bolt text-blue-500 mb-2"></i>
-            <span class="block font-semibold text-gray-700">Free Trial Quiz</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" id="joinDiscussionBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
-            <i class="fas fa-comments text-blue-500 mb-2"></i>
-            <span class="block font-semibold text-gray-700">Join Discussion Room</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" id="createRoomBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
-            <i class="fas fa-plus-circle text-blue-500 mb-2"></i>
-            <span class="block font-semibold text-gray-700">Create Discussion Room</span>
-          </a>
-        </li>
-        <li>
-          <a href="#" id="refreshBtn" class="block bg-white p-4 rounded-xl text-center shadow hover:bg-gray-100 transition-colors duration-200">
-            <i class="fas fa-sync-alt text-blue-500 mb-2"></i>
-            <span class="block font-semibold text-gray-700">Refresh Dashboard</span>
-          </a>
-        </li>
-      </ul>
-    </div>
+    <script>
+        // --- API Endpoints ---
+        const API_URLS = {
+            onlineUsers: '/api/online_users',
+            discussions: '/api/discussions',
+            messages: (topicId) => `/api/discussions/${topicId}/messages`,
+            ping: '/api/ping',
+            logout: '/logout'
+        };
 
-  </div>
+        // --- DOM Elements ---
+        const statusMessageEl = document.getElementById("status-message");
+        const onlineUsersEl = document.getElementById("online-users");
+        const onlineUsersListEl = document.getElementById("online-users-list");
+        const discussionTopicsListEl = document.getElementById("discussion-topics-list");
+        const logoutBtn = document.getElementById("logoutBtn");
+        const welcomeMessageEl = document.getElementById("welcome-message");
+        const userEmailDisplayEl = document.getElementById("user-email-display");
+        const noDiscussionsMessageEl = document.getElementById("no-discussions-message");
 
-  <!-- Firebase Scripts -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-app.js";
-    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot, query, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
-    import { setLogLevel } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js";
+        // --- Chat Modal Elements ---
+        const chatModal = document.getElementById("chat-modal");
+        const chatTopicQuestion = document.getElementById("chat-topic-question");
+        const chatMessageList = document.getElementById("chat-message-list");
+        const sendMessageForm = document.getElementById("send-message-form");
+        const messageInput = document.getElementById("message-input");
+        const leaveRoomBtn = document.getElementById("leave-room-btn");
 
-    // Global variables provided by the environment
-    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-    const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
-    const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
-    let db;
-    let auth;
-    let userId = null;
-    let currentQuizData = null;
+        let currentTopicId = null;
+        let currentUserEmail = '{{ email }}'; // Get user email from Flask context
 
-    // UI elements
-    const quizForm = document.getElementById("quizForm");
-    const loadingDiv = document.getElementById("loading");
-    const quizResultDiv = document.getElementById("quizResult");
-    const quizContentDiv = document.getElementById("quizContent");
-    const submitQuizBtn = document.getElementById("submitQuizBtn");
-    const newQuizBtn = document.getElementById("newQuizBtn");
-    const scoreContainer = document.getElementById("scoreContainer");
-    const scoreSpan = document.getElementById("score");
-    const totalSpan = document.getElementById("total");
-    const activityList = document.getElementById("activityList");
-    const noActivityMessage = document.getElementById("noActivityMessage");
-    const userEmailSpan = document.getElementById("userEmail");
-    const userIdDisplay = document.getElementById("userIdDisplay");
-    const errorMessageDiv = document.getElementById("errorMessage");
-    const successMessageDiv = document.getElementById("successMessage");
-    const logoutBtn = document.getElementById("logoutBtn");
-
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    auth = getAuth(app);
-    db = getFirestore(app);
-    setLogLevel('Debug');
-
-    // Authenticate user
-    onAuthStateChanged(auth, async (user) => {
-        if (user) {
-            userId = user.uid;
-            userEmailSpan.textContent = user.email || 'Anonymous User';
-            userIdDisplay.textContent = `User ID: ${userId}`;
-            console.log("Firebase user authenticated with ID:", userId);
-            setupRealtimeHistory();
-        } else {
-            console.log("No user signed in. Attempting to sign in.");
-            if (initialAuthToken) {
-                try {
-                    await signInWithCustomToken(auth, initialAuthToken);
-                } catch (error) {
-                    console.error("Error signing in with custom token:", error);
-                    await signInAnonymously(auth);
-                }
-            } else {
-                await signInAnonymously(auth);
-            }
+        // --- Modal Control Functions ---
+        function showChatModal(topicId, question) {
+            currentTopicId = topicId;
+            chatTopicQuestion.textContent = question;
+            chatModal.classList.remove("hidden");
+            fetchMessages(topicId);
         }
-    });
 
-    function setupRealtimeHistory() {
-        if (!userId) {
-            console.log("User ID not available, cannot set up history listener.");
-            return;
+        function hideChatModal() {
+            currentTopicId = null;
+            chatModal.classList.add("hidden");
+            chatMessageList.innerHTML = "";
         }
-        const historyCollection = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
-        const q = query(historyCollection);
 
-        onSnapshot(q, (snapshot) => {
-            const history = [];
-            snapshot.forEach((doc) => {
-                history.push({ id: doc.id, ...doc.data() });
-            });
-            renderHistory(history);
-        }, (error) => {
-            console.error("Error fetching history:", error);
-            showMessage("Failed to load history. Please try refreshing.", "error");
-        });
-    }
+        leaveRoomBtn.addEventListener("click", hideChatModal);
 
-    function renderHistory(history) {
-        activityList.innerHTML = ''; // Clear existing list
-        if (history.length === 0) {
-            noActivityMessage.style.display = 'block';
-        } else {
-            noActivityMessage.style.display = 'none';
-            // Sort history by timestamp descending
-            history.sort((a, b) => b.timestamp - a.timestamp);
-            history.forEach(item => {
-                const li = document.createElement('li');
-                li.className = 'bg-white p-4 rounded-lg border-l-4 border-blue-500 shadow-sm transition-all duration-200';
-                const date = item.timestamp ? new Date(item.timestamp.toDate()).toLocaleString() : 'N/A';
-                li.innerHTML = `
-                    <strong>${item.subject || 'Unknown Subject'}</strong> -
-                    Score: ${item.score || 'N/A'}/${item.total || 'N/A'} |
-                    Date: ${date}
-                `;
-                activityList.appendChild(li);
-            });
-        }
-    }
-
-    // Helper function to show a message (error or success)
-    function showMessage(message, type) {
-        const messageDiv = type === 'error' ? errorMessageDiv : successMessageDiv;
-        const otherDiv = type === 'error' ? successMessageDiv : errorMessageDiv;
-        
-        messageDiv.textContent = message;
-        messageDiv.classList.remove('hidden');
-        otherDiv.classList.add('hidden');
-        
-        setTimeout(() => {
-            messageDiv.classList.add('hidden');
-        }, 5000);
-    }
-
-    // Generate Quiz (Simulated with LLM API call)
-    quizForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        
-        const subject = document.getElementById('subjectInput').value;
-        const gradeLevel = document.getElementById('gradeLevelSelect').value;
-
-        loadingDiv.classList.remove('hidden');
-        quizResultDiv.classList.add('hidden');
-        showMessage('', '');
-
-        try {
-            const userPrompt = `Generate a 5-question multiple-choice quiz on the topic of "${subject}" for a "${gradeLevel}" student. Each question should have a question, four options labeled A, B, C, D, and a correct answer key. The output should be a single JSON array of objects.`;
-            const systemPrompt = "You are a quiz generation expert. Your task is to create multiple-choice questions based on the user's request. The output must be valid JSON.";
-
-            const payload = {
-                contents: [{ parts: [{ text: userPrompt }] }],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: {
-                    responseMimeType: "application/json",
-                    responseSchema: {
-                        type: "ARRAY",
-                        items: {
-                            type: "OBJECT",
-                            properties: {
-                                "question": { "type": "STRING" },
-                                "options": {
-                                    "type": "ARRAY",
-                                    "items": { "type": "STRING" }
-                                },
-                                "correct": { "type": "STRING" }
-                            }
-                        }
-                    }
-                }
-            };
-
-            const apiKey = "";
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-05-20:generateContent?key=${apiKey}`;
-
-            const res = await fetch(apiUrl, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (!res.ok) {
-                throw new Error(`API call failed with status: ${res.status}`);
-            }
-
-            const data = await res.json();
-            const jsonText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!jsonText) {
-                throw new Error("Failed to parse quiz data from API response.");
-            }
-            
-            currentQuizData = JSON.parse(jsonText);
-            renderQuiz(currentQuizData);
-            quizResultDiv.classList.remove('hidden');
-            quizResultDiv.scrollIntoView({ behavior: 'smooth' });
-
-        } catch (error) {
-            console.error('Error generating quiz:', error);
-            showMessage('Failed to generate quiz. Please try again later.', 'error');
-        } finally {
-            loadingDiv.classList.add('hidden');
-        }
-    });
-
-    function renderQuiz(quiz) {
-        quizContentDiv.innerHTML = '';
-        quiz.forEach((q, index) => {
-            const questionElement = document.createElement('div');
-            questionElement.className = 'question mb-6 pb-4 border-b border-gray-300';
-            questionElement.id = `question${index}`;
-            questionElement.innerHTML = `
-                <div class="font-semibold text-lg text-gray-800 mb-3">${q.question}</div>
-                <div class="space-y-2">
-                    ${q.options.map((opt, optIndex) => {
-                        const optionLetter = String.fromCharCode(65 + optIndex);
-                        return `
-                            <label class="option flex items-start p-3 rounded-lg border border-gray-300 transition-colors duration-200 hover:bg-gray-100 cursor-pointer">
-                                <input type="radio" name="q${index}" value="${optionLetter}" class="mt-1 mr-3">
-                                <span class="option-label font-medium">${optionLetter}.</span>
-                                <span class="option-text flex-1">${opt}</span>
-                            </label>
-                        `;
-                    }).join('')}
-                </div>
-                <div id="feedback${index}" class="hidden mt-3 text-sm p-2 rounded-md font-medium"></div>
-            `;
-            quizContentDiv.appendChild(questionElement);
-        });
-        
-        submitQuizBtn.classList.remove('hidden');
-        newQuizBtn.classList.add('hidden');
-        scoreContainer.classList.add('hidden');
-    }
-
-    submitQuizBtn.addEventListener('click', async () => {
-        if (!currentQuizData) return;
-        
-        let score = 0;
-        const total = currentQuizData.length;
-        
-        currentQuizData.forEach((q, index) => {
-            const selectedOption = document.querySelector(`input[name="q${index}"]:checked`);
-            const feedbackElement = document.getElementById(`feedback${index}`);
-            const questionElement = document.getElementById(`question${index}`);
-            
-            if (selectedOption) {
-                const selectedValue = selectedOption.value;
-                if (selectedValue === q.correct) {
-                    score++;
-                    selectedOption.parentElement.classList.add('bg-green-100', 'border-green-500');
-                    feedbackElement.textContent = "Correct! Well done.";
-                    feedbackElement.classList.add('bg-green-100', 'text-green-700');
+        // --- Polling Functions ---
+        async function fetchOnlineUsers() {
+            try {
+                const response = await fetch(API_URLS.onlineUsers);
+                if (!response.ok) throw new Error("Failed to fetch online users.");
+                const data = await response.json();
+                onlineUsersEl.textContent = data.count;
+                onlineUsersListEl.innerHTML = "";
+                if (data.users.length === 0) {
+                    onlineUsersListEl.innerHTML = '<li class="text-gray-500 text-sm">No users currently online.</li>';
                 } else {
-                    selectedOption.parentElement.classList.add('bg-red-100', 'border-red-500');
-                    const correctOption = questionElement.querySelector(`input[value="${q.correct}"]`).parentElement;
-                    correctOption.classList.add('bg-green-100', 'border-green-500');
-                    feedbackElement.textContent = "Incorrect. The correct answer is highlighted in green.";
-                    feedbackElement.classList.add('bg-red-100', 'text-red-700');
+                    data.users.forEach(user => {
+                        const li = document.createElement("li");
+                        li.className = "flex items-center gap-2 text-gray-700 text-sm";
+                        li.innerHTML = `<span class="text-green-500">•</span>${user.email} (${user.role})`;
+                        onlineUsersListEl.appendChild(li);
+                    });
                 }
-            } else {
-                const correctOption = questionElement.querySelector(`input[value="${q.correct}"]`).parentElement;
-                correctOption.classList.add('bg-green-100', 'border-green-500');
-                feedbackElement.textContent = "You didn't answer this question. The correct answer is highlighted in green.";
-                feedbackElement.classList.add('bg-red-100', 'text-red-700');
+            } catch (error) {
+                console.error("Online users fetch error:", error);
             }
-            feedbackElement.classList.remove('hidden');
-            questionElement.querySelectorAll('input').forEach(input => input.disabled = true);
+        }
+
+        async function fetchDiscussions() {
+            try {
+                const response = await fetch(API_URLS.discussions);
+                if (!response.ok) throw new Error("Failed to fetch discussions.");
+                const topics = await response.json();
+                discussionTopicsListEl.innerHTML = "";
+                if (topics.length === 0) {
+                    noDiscussionsMessageEl.style.display = 'block';
+                } else {
+                    noDiscussionsMessageEl.style.display = 'none';
+                    topics.forEach(topic => {
+                        const li = document.createElement("li");
+                        li.dataset.id = topic.id;
+                        li.className = "card bg-white p-4 rounded-lg shadow border border-gray-200 flex flex-col gap-2 cursor-pointer transition-all duration-200";
+                        const postedDate = topic.created_at?.toDate ? new Date(topic.created_at.toDate()).toLocaleString() : 'N/A';
+                        li.innerHTML = `
+                            <p class="font-semibold text-gray-800">${topic.question}</p>
+                            <p class="text-xs text-gray-500">Posted by: ${topic.author} on ${postedDate}</p>
+                            <button class="join-btn btn w-full sm:w-auto mt-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-lg shadow">Join Discussion</button>
+                        `;
+                        li.querySelector(".join-btn").addEventListener("click", () => showChatModal(topic.id, topic.question));
+                        discussionTopicsListEl.appendChild(li);
+                    });
+                }
+            } catch (error) {
+                console.error("Discussions fetch error:", error);
+            }
+        }
+
+        async function fetchMessages(topicId) {
+            try {
+                const response = await fetch(API_URLS.messages(topicId));
+                if (!response.ok) throw new Error("Failed to fetch messages.");
+                const messages = await response.json();
+                chatMessageList.innerHTML = "";
+                messages.forEach(msg => {
+                    const div = document.createElement("div");
+                    const isAdmin = msg.is_admin || (msg.author === 'dangalan20@gmail.com');
+                    const isCurrentUser = msg.author === currentUserEmail;
+                    let authorText = isCurrentUser ? 'You' : (isAdmin ? 'Admin' : msg.author.split('@')[0]);
+                    
+                    div.className = `max-w-[80%] p-3 rounded-lg text-sm ${isCurrentUser ? 'bg-blue-600 text-white self-end' : 'bg-gray-200 text-gray-800 self-start'}`;
+                    
+                    div.innerHTML = `<p class="font-bold text-xs mb-1">${authorText}</p><p>${msg.text}</p>`;
+                    chatMessageList.appendChild(div);
+                });
+                chatMessageList.scrollTop = chatMessageList.scrollHeight;
+            } catch (error) {
+                console.error("Messages fetch error:", error);
+            }
+        }
+
+        async function pingBackend() {
+            try {
+                await fetch(API_URLS.ping, { method: "POST" });
+                statusMessageEl.textContent = "Dashboard loaded successfully!";
+                welcomeMessageEl.style.display = 'block';
+                userEmailDisplayEl.textContent = currentUserEmail;
+            } catch (error) {
+                console.error("Ping error:", error);
+            }
+        }
+
+        // --- Event Listeners ---
+        logoutBtn.addEventListener("click", async () => {
+            try {
+                const response = await fetch(API_URLS.logout, { method: "POST" });
+                if (response.ok) window.location.href = "/login";
+            } catch (error) {
+                console.error("Logout failed:", error);
+            }
         });
 
-        scoreSpan.textContent = score;
-        totalSpan.textContent = total;
-        scoreContainer.classList.remove('hidden');
-        submitQuizBtn.classList.add('hidden');
-        newQuizBtn.classList.remove('hidden');
+        sendMessageForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const message = messageInput.value.trim();
+            if (!message || !currentTopicId) return;
+
+            try {
+                const response = await fetch(API_URLS.messages(currentTopicId), {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ message })
+                });
+                if (!response.ok) throw new Error("Failed to send message.");
+                messageInput.value = "";
+                fetchMessages(currentTopicId); // Refresh messages after sending
+            } catch (error) {
+                console.error("Message send error:", error);
+            }
+        });
         
-        await saveQuizResult(score, total);
-    });
-
-    async function saveQuizResult(score, total) {
-        if (!userId) {
-            console.error("User not authenticated. Cannot save result.");
-            showMessage("Authentication failed. Cannot save quiz result.", "error");
-            return;
-        }
-
-        const historyCollection = collection(db, `artifacts/${appId}/users/${userId}/quiz_history`);
-        const subject = document.getElementById('subjectInput').value || 'Unknown Subject';
-
-        try {
-            await addDoc(historyCollection, {
-                subject: subject,
-                score: score,
-                total: total,
-                timestamp: serverTimestamp()
-            });
-            console.log("Quiz result saved successfully!");
-            showMessage("Your quiz result has been saved!", "success");
-        } catch (e) {
-            console.error("Error adding document: ", e);
-            showMessage("Failed to save quiz result. Please try again.", "error");
-        }
-    }
-
-    newQuizBtn.addEventListener('click', () => {
-        quizForm.reset();
-        quizResultDiv.classList.add('hidden');
-        currentQuizData = null;
-    });
-
-    logoutBtn.addEventListener('click', () => {
-        auth.signOut().then(() => {
-            window.location.reload();
-        }).catch((error) => {
-            console.error("Error signing out:", error);
-            showMessage("Failed to log out.", "error");
+        // --- Initial Load & Polling ---
+        document.addEventListener("DOMContentLoaded", () => {
+            pingBackend();
+            fetchOnlineUsers();
+            fetchDiscussions();
+            // Set up polling for online users and discussions
+            setInterval(pingBackend, 10000);
+            setInterval(fetchOnlineUsers, 10000);
+            setInterval(fetchDiscussions, 10000);
         });
-    });
-
-    // Handle other button clicks (not implemented but show a message)
-    document.getElementById('freeTrialBtn').addEventListener('click', (e) => {
-        e.preventDefault();
-        showMessage('Free trial quiz feature is not implemented yet.', 'success');
-    });
-
-    document.getElementById('joinDiscussionBtn').addEventListener('click', (e) => {
-        e.preventDefault();
-        showMessage('Join discussion room feature is not implemented yet.', 'success');
-    });
-
-    document.getElementById('createRoomBtn').addEventListener('click', (e) => {
-        e.preventDefault();
-        showMessage('Create discussion room feature is not implemented yet.', 'success');
-    });
-
-    document.getElementById('refreshBtn').addEventListener('click', (e) => {
-        e.preventDefault();
-        window.location.reload();
-    });
-
-  </script>
+    </script>
 </body>
 </html>
