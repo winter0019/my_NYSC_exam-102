@@ -78,7 +78,9 @@ ALLOWED_USERS = {
     "omnibuszara@gmail.com", "mssphartyma@gmail.com", "assyy.au@gmail.com",
     "shenyshehu@gmail.com", "isadeeq17@gmail.com", "dangalan20@gmail.com",
     "muhammadsadanu@gmail.com", "rukitafida@gmail.com", "winter0019@protonmail.com",
-    "winter19@gmail.com", "adedoyinfehintola@gmail.com",
+    "winter19@gmail.com", "adedoyinfehintola@gmail.com", "aderemijudy@gmail.com", 
+    "meetmohdibrahim@gmail.com", "ishayasamuel23@gmail.com", "msani516@gmail.com", 
+    "olufunkehenryobadofin@gmail.com",
 }
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
 ADMIN_USER = "dangalan20@gmail.com"
@@ -660,6 +662,7 @@ def delete_topic(topic_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
