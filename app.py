@@ -85,7 +85,7 @@ ALLOWED_USERS = {
     "dearmairamri@gmail.com",
 }
 ALLOWED_USERS = {email.lower() for email in ALLOWED_USERS}
-ADMIN_USER = "dangalan20@gmail.com"
+ADMIN_USER = "dangalan20@gmail.com", "dearmairamri@gmail.com"
 APP_ID = "nysc-exam-prep-app" # Placeholder App ID
 
 # In-memory storage for active sessions (for online user count)
@@ -664,6 +664,7 @@ def delete_topic(topic_id):
 # --- Run ---
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.getenv("PORT", "5000")))
+
 
 
 
